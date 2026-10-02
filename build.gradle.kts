@@ -1,3 +1,5 @@
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
+
 plugins {
     id("java")
     id("org.jetbrains.intellij.platform") version "2.1.0"
@@ -15,7 +17,7 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        // Собираем против установленного PyCharm — SDK не скачивается
+        // Build against the locally installed PyCharm: no SDK download
         local("/Applications/PyCharm CE.app")
         bundledPlugin("PythonCore")
     }
@@ -35,6 +37,13 @@ java {
 intellijPlatform {
     instrumentCode = false
     buildSearchableOptions = false
+    pluginVerification {
+        ides {
+            local(file("/Applications/PyCharm CE.app"))
+            ide(IntelliJPlatformType.PyCharmCommunity, "2024.3.6.1")
+            ide(IntelliJPlatformType.PyCharmProfessional, "2026.2.3")
+        }
+    }
     pluginConfiguration {
         ideaVersion {
             sinceBuild = "231"
