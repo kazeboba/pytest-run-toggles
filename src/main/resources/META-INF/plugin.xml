@@ -1,0 +1,36 @@
+<idea-plugin>
+    <id>dev.autotests.runtoggles</id>
+    <name>Pytest Run Params</name>
+    <vendor>AndroidAirTests</vendor>
+    <description><![CDATA[
+        Pytest Params panel: pytest run options as checkboxes. Standard pytest options are added with «+»,
+        custom ones (e.g. conftest options) are typed in; every row has a checkbox, a value and a remove button.<br>
+        Enabled options become the Additional Arguments of the pytest template and of temporary (▶) configurations;
+        saved configurations are left untouched. The same checkboxes are available on the Run tab toolbar
+        of pytest runs and in the status bar.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>PythonCore</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="Pytest Params" anchor="right" icon="/icons/pytestParams.svg"
+                    factoryClass="dev.autotests.runtoggles.RunParamsToolWindowFactory"/>
+        <postStartupActivity implementation="dev.autotests.runtoggles.RunParamsStartup"/>
+        <statusBarWidgetFactory id="PytestParamsWidget" implementation="dev.autotests.runtoggles.RunParamsWidgetFactory"/>
+    </extensions>
+
+    <actions>
+        <group id="PytestParams.RunTab" class="dev.autotests.runtoggles.RunParamsToolbarGroup"
+               text="Pytest Params" description="pytest run options">
+            <add-to-group group-id="RunTab.TopToolbar" anchor="last"/>
+        </group>
+    </actions>
+
+    <projectListeners>
+        <listener class="dev.autotests.runtoggles.RunParamsListener"
+                  topic="com.intellij.execution.RunManagerListener"/>
+        <listener class="dev.autotests.runtoggles.ModuleProgressTracker"
+                  topic="com.intellij.execution.testframework.sm.runner.SMTRunnerEventsListener"/>
+    </projectListeners>
+</idea-plugin>
