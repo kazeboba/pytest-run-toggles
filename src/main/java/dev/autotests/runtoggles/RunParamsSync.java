@@ -29,9 +29,11 @@ final class RunParamsSync {
         String args = state.arguments();
         List<String> deselect = ModuleProgress.deselectArgs(project, state.getState());
         RunManager runManager = RunManager.getInstance(project);
-        set(template(runManager), args);
+        if (state.getState().manageTemplate) {
+            set(template(runManager), args);
+        }
         for (RunnerAndConfigurationSettings settings : runManager.getAllSettings()) {
-            if (settings.isTemporary()) {
+            if (settings.isTemporary() && state.getState().manageTemporary) {
                 set(settings.getConfiguration(), argsFor(project, settings.getConfiguration(), args, deselect));
             }
         }
@@ -60,8 +62,11 @@ final class RunParamsSync {
     /** conftest int options with default 0/1 become value checkboxes. A row that was disabled
      * (argument not passed) gets the default, so pytest sees the same as before. */
     static void markBinary(Project project) {
-        Map<String, String> conftestInts = ConftestOptions.intDefaults(project);
-        for (RunParamsState.Param param : RunParamsState.getInstance(project).params()) {
+        markBinary(RunParamsState.getInstance(project).params(), ConftestOptions.intDefaults(project));
+    }
+
+    static void markBinary(List<RunParamsState.Param> params, Map<String, String> conftestInts) {
+        for (RunParamsState.Param param : params) {
             String fallback = conftestInts.get(param.name);
             boolean zeroOne = "0".equals(fallback) || "1".equals(fallback);
             if (param.binary || !zeroOne || (param.value != null && !param.value.matches("[01]"))) {

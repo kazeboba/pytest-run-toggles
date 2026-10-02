@@ -81,6 +81,11 @@ public final class RunParamsState implements PersistentStateComponent<RunParamsS
         /** results in the tracked module: 'test_x', 'TestClass::test_y', 'test_z[1]' */
         public List<String> passed = new ArrayList<>();
         public List<String> failed = new ArrayList<>();
+        /** Settings → Tools → Pytest Run Params */
+        public boolean manageTemplate = true;
+        public boolean manageTemporary = true;
+        public boolean toolbarOptions = true;
+        public boolean toolbarProgress = true;
     }
 
     private Data data = new Data();

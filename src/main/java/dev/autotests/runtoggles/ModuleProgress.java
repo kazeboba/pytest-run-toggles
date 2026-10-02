@@ -18,6 +18,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -117,10 +118,14 @@ final class ModuleProgress {
         unfinished.addAll(data.failed);
         String nodePrefix = Path.of(project.getBasePath()).relativize(Path.of(data.progressModule)).toString()
                 .replace(File.separatorChar, '/') + "::";
+        return deselectArgs(data.passed, unfinished, nodePrefix);
+    }
+
+    static List<String> deselectArgs(Collection<String> passed, Collection<String> unfinished, String nodePrefix) {
         List<String> args = new ArrayList<>();
-        for (String passed : data.passed) {
-            if (unfinished.stream().noneMatch(other -> other.startsWith(passed))) {
-                args.add("--deselect=" + nodePrefix + passed);
+        for (String test : passed) {
+            if (unfinished.stream().noneMatch(other -> other.startsWith(test))) {
+                args.add("--deselect=" + nodePrefix + test);
             }
         }
         return args;

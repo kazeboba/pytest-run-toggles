@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>dev.autotests.runtoggles</id>
     <name>Pytest Run Params</name>
-    <vendor>AndroidAirTests</vendor>
+    <vendor url="https://github.com/kazeboba/pytest-run-toggles">Ilia Rumyantcev</vendor>
     <description><![CDATA[
         Pytest Params panel: pytest run options as checkboxes. Standard pytest options are added with «+»,
         custom ones (e.g. conftest options) are typed in; every row has a checkbox, a value and a remove button.<br>
@@ -11,12 +11,14 @@
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
-    <depends>PythonCore</depends>
+    <depends>com.intellij.modules.python</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow id="Pytest Params" anchor="right" icon="/icons/pytestParams.svg"
                     factoryClass="dev.autotests.runtoggles.RunParamsToolWindowFactory"/>
         <postStartupActivity implementation="dev.autotests.runtoggles.RunParamsStartup"/>
+        <projectConfigurable parentId="tools" id="pytest.run.params" displayName="Pytest Run Params"
+                             instance="dev.autotests.runtoggles.RunParamsConfigurable"/>
         <statusBarWidgetFactory id="PytestParamsWidget" implementation="dev.autotests.runtoggles.RunParamsWidgetFactory"/>
     </extensions>
 

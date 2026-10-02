@@ -31,12 +31,19 @@ Included rows become the **Additional Arguments** of the pytest template and of 
 entirely, manual edits there are overwritten. Saved configurations are not changed. On the first run the panel is
 filled from the current pytest template arguments. Options are stored per project in `.idea/workspace.xml`.
 
+## Settings
+Settings → Tools → Pytest Run Params (per project): write options to the pytest template and/or temporary (▶)
+configurations; show option checkboxes and/or module progress on the Run tab toolbar. The status bar widget is
+toggled from the status bar context menu.
+
 ## Build
 ```bash
 JAVA_HOME="/Applications/PyCharm CE.app/Contents/jbr/Contents/Home" ./gradlew buildPlugin
 ```
 Built against the installed PyCharm (`build.gradle.kts`, `local(...)`); output —
 `build/distributions/at-run-toggles-<version>.zip`.
+
+Unit tests (pure logic: parsing, arguments, conftest detection, test keys, `--deselect`): `./gradlew test`.
 
 ## Install
 Unzip into `~/Library/Application Support/JetBrains/PyCharmCE2023.1/plugins/` (remove the old jar from

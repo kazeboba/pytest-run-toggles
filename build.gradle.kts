@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "dev.autotests"
-version = "1.11.0"
+version = "1.12.0"
 
 repositories {
     mavenCentral()
@@ -19,6 +19,12 @@ dependencies {
         local("/Applications/PyCharm CE.app")
         bundledPlugin("PythonCore")
     }
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 java {

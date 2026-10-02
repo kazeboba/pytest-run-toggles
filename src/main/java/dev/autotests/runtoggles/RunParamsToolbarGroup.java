@@ -50,12 +50,16 @@ public final class RunParamsToolbarGroup extends ActionGroup implements DumbAwar
         List<AnAction> actions = new ArrayList<>();
         actions.add(Separator.getInstance());
         RunParamsState state = RunParamsState.getInstance(project);
-        for (boolean standard : new boolean[]{true, false}) {
-            state.params().stream().filter(param -> param.standard == standard)
-                    .forEach(param -> actions.add(checkboxes.computeIfAbsent(param, ParamCheckbox::new)));
+        if (state.getState().toolbarOptions) {
+            for (boolean standard : new boolean[]{true, false}) {
+                state.params().stream().filter(param -> param.standard == standard)
+                        .forEach(param -> actions.add(checkboxes.computeIfAbsent(param, ParamCheckbox::new)));
+            }
         }
-        actions.add(Separator.getInstance());
-        actions.add(ModuleStatsAction.INSTANCE);
+        if (state.getState().toolbarProgress) {
+            actions.add(Separator.getInstance());
+            actions.add(ModuleStatsAction.INSTANCE);
+        }
         actions.add(OPEN_PANEL);
         return actions.toArray(AnAction.EMPTY_ARRAY);
     }
