@@ -60,10 +60,9 @@ public final class ModuleProgressTracker extends SMTRunnerEventsAdapter {
 
     @Override
     public void onTestingFinished(@NotNull SMTestProxy.SMRootTestProxy root) {
-        // Clean up module: passed tests changed — refresh --deselect of the module run
-        if (runs.remove(root) != null && RunParamsState.getInstance(project).getState().cleanup) {
-            ApplicationManager.getApplication().invokeLater(() -> RunParamsSync.apply(project, this), project.getDisposed());
-        }
+        // the permanent clean-up mode is gone (one-off runs rebuild --deselect themselves) —
+        // nothing to refresh, only the run bookkeeping remains
+        runs.remove(root);
     }
 
     private static SMTestProxy.SMRootTestProxy rootOf(SMTestProxy test) {

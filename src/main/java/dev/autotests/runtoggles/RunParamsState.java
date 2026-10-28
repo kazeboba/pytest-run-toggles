@@ -7,6 +7,7 @@ import com.intellij.openapi.components.Storage;
 import com.intellij.openapi.components.StoragePathMacros;
 import com.intellij.openapi.project.Project;
 import com.intellij.util.execution.ParametersListUtil;
+import com.intellij.util.xmlb.annotations.Transient;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -27,6 +28,9 @@ public final class RunParamsState implements PersistentStateComponent<RunParamsS
         public boolean numeric;
         /** 0/1 option (int with default 0/1 in conftest): the checkbox is the value, the argument is always passed */
         public boolean binary;
+        /** conftest default of a 0/1 option: its state in a saved configuration that doesn't pass it */
+        @Transient
+        public String conftestDefault;
 
         public Param() {
         }
@@ -74,13 +78,13 @@ public final class RunParamsState implements PersistentStateComponent<RunParamsS
     public static final class Data {
         public List<Param> params = new ArrayList<>();
         public boolean seeded;
-        /** Clean up module: module runs skip tests that already passed (off by default) */
-        public boolean cleanup;
         /** absolute path of the test module whose progress is counted */
         public String progressModule;
         /** results in the tracked module: 'test_x', 'TestClass::test_y', 'test_z[1]' */
         public List<String> passed = new ArrayList<>();
         public List<String> failed = new ArrayList<>();
+        /** tests set to 'not run' by hand: 'test_z[1]' can't be derived from the module's functions, so it is kept here */
+        public List<String> pending = new ArrayList<>();
         /** Settings → Tools → Pytest Run Params */
         public boolean manageTemplate = true;
         public boolean manageTemporary = true;
@@ -119,13 +123,36 @@ public final class RunParamsState implements PersistentStateComponent<RunParamsS
     void resetProgress() {
         data.passed.clear();
         data.failed.clear();
+        data.pending.clear();
     }
 
-    /** The latest result of a test wins. */
+    /** The latest result of a test wins. A real result of a parametrized test ('test_z[1]') replaces the status
+     * set by hand for the whole test ('test_z'). */
     void record(String test, boolean passed) {
+        forget(test);
+        int param = test.indexOf('[');
+        if (param > 0) {
+            forget(test.substring(0, param));
+        }
+        (passed ? data.passed : data.failed).add(test);
+    }
+
+    /** A status set by hand in the module list: passed leaves the clean-up rerun, not run and failed join it. */
+    void setStatus(String test, TestStatus status) {
+        switch (status) {
+            case PASSED -> record(test, true);
+            case FAILED -> record(test, false);
+            case NOT_RUN -> {
+                forget(test);
+                data.pending.add(test);
+            }
+        }
+    }
+
+    private void forget(String test) {
         data.passed.remove(test);
         data.failed.remove(test);
-        (passed ? data.passed : data.failed).add(test);
+        data.pending.remove(test);
     }
 
     /** pytest arguments from the included rows: standard first, then custom. */

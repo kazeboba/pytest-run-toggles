@@ -5,8 +5,11 @@ import com.intellij.execution.RunnerAndConfigurationSettings;
 import com.intellij.execution.configurations.RunConfiguration;
 import com.intellij.openapi.project.Project;
 import com.intellij.util.execution.ParametersListUtil;
+import com.jetbrains.python.testing.PyAbstractTestConfiguration;
 import com.jetbrains.python.testing.PyTestConfiguration;
 import com.jetbrains.python.testing.PythonTestConfigurationType;
+import com.jetbrains.python.testing.autoDetectTests.PyAutoDetectTestConfiguration;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,6 +34,8 @@ final class RunParamsSync {
         RunManager runManager = RunManager.getInstance(project);
         if (state.getState().manageTemplate) {
             set(template(runManager), args);
+            set(runManager.getConfigurationTemplate(PythonTestConfigurationType.getInstance().getAutoDetectFactory())
+                    .getConfiguration(), args);
         }
         for (RunnerAndConfigurationSettings settings : runManager.getAllSettings()) {
             if (settings.isTemporary() && state.getState().manageTemporary) {
@@ -69,6 +74,9 @@ final class RunParamsSync {
         for (RunParamsState.Param param : params) {
             String fallback = conftestInts.get(param.name);
             boolean zeroOne = "0".equals(fallback) || "1".equals(fallback);
+            if (zeroOne) {
+                param.conftestDefault = fallback;
+            }
             if (param.binary || !zeroOne || (param.value != null && !param.value.matches("[01]"))) {
                 continue;
             }
@@ -93,9 +101,16 @@ final class RunParamsSync {
     }
 
     static void set(RunConfiguration configuration, String args) {
-        if (configuration instanceof PyTestConfiguration pytest) {
-            pytest.setAdditionalArguments(args);
+        PyAbstractTestConfiguration test = pytestLike(configuration);
+        if (test != null) {
+            test.setAdditionalArguments(args);
         }
+    }
+
+    /** pytest configurations and Autodetect ones (they run pytest when it is installed) take the options. */
+    static @Nullable PyAbstractTestConfiguration pytestLike(@Nullable Object configuration) {
+        return configuration instanceof PyTestConfiguration || configuration instanceof PyAutoDetectTestConfiguration
+                ? (PyAbstractTestConfiguration) configuration : null;
     }
 
     private static RunConfiguration template(RunManager runManager) {

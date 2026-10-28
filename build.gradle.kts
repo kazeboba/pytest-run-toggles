@@ -2,11 +2,11 @@ import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 
 plugins {
     id("java")
-    id("org.jetbrains.intellij.platform") version "2.1.0"
+    id("org.jetbrains.intellij.platform") version "2.10.5"
 }
 
 group = "dev.autotests"
-version = "1.12.0"
+version = "1.18.0"
 
 repositories {
     mavenCentral()
@@ -23,6 +23,8 @@ dependencies {
     }
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    // the platform test classpath (IDE testFramework.jar) needs JUnit 4 classes even for plain JUnit 5 tests
+    testRuntimeOnly("junit:junit:4.13.2")
 }
 
 tasks.test {

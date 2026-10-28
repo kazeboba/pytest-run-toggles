@@ -14,11 +14,13 @@ public final class RunParamsListener implements RunManagerListener {
         this.project = project;
     }
 
+    /** RunManager itself fires this while loading configurations, so it must not be requested here (cyclic
+     * service initialization): before the first seeding the startup activity seeds and syncs everything. */
     @Override
     public void runConfigurationAdded(@NotNull RunnerAndConfigurationSettings settings) {
-        if (settings.isTemporary() && RunParamsState.getInstance(project).getState().manageTemporary) {
-            RunParamsSync.seedOnce(project);
-            RunParamsState state = RunParamsState.getInstance(project);
+        RunParamsState state = RunParamsState.getInstance(project);
+        if (settings.isTemporary() && state.getState().manageTemporary && state.getState().seeded) {
+            RunParamsSync.markBinary(project);
             RunParamsSync.set(settings.getConfiguration(), RunParamsSync.argsFor(project, settings.getConfiguration(),
                     state.arguments(), ModuleProgress.deselectArgs(project, state.getState())));
         }

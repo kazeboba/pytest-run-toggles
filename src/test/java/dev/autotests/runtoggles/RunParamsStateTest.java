@@ -78,4 +78,47 @@ class RunParamsStateTest {
         state.trackModule("/p/tests/test_b.py");
         assertTrue(state.getState().passed.isEmpty());
     }
+
+    @Test
+    void handStatusPassedLeavesTheRerunAndFailedJoinsIt() {
+        RunParamsState state = new RunParamsState();
+        state.record("test_a", false);
+        state.setStatus("test_a", TestStatus.PASSED);
+        assertEquals(List.of("test_a"), state.getState().passed);
+        assertTrue(state.getState().failed.isEmpty());
+        state.setStatus("test_a", TestStatus.FAILED);
+        assertEquals(List.of("test_a"), state.getState().failed);
+        assertTrue(state.getState().passed.isEmpty());
+    }
+
+    @Test
+    void handStatusNotRunIsKeptForParametrizedIds() {
+        RunParamsState state = new RunParamsState();
+        state.record("test_p[1]", true);
+        state.record("test_p[2]", true);
+        state.setStatus("test_p[1]", TestStatus.NOT_RUN);
+        assertEquals(List.of("test_p[2]"), state.getState().passed);
+        assertEquals(List.of("test_p[1]"), state.getState().pending);
+        assertEquals(TestStatus.NOT_RUN, TestStatus.of(state.getState(), "test_p[1]"));
+    }
+
+    @Test
+    void realResultReplacesHandStatusOfTheTestAndOfItsBase() {
+        RunParamsState state = new RunParamsState();
+        state.setStatus("test_p", TestStatus.FAILED);
+        state.setStatus("test_q[1]", TestStatus.NOT_RUN);
+        state.record("test_p[1]", true);
+        state.record("test_q[1]", false);
+        assertTrue(state.getState().pending.isEmpty());
+        assertEquals(List.of("test_p[1]"), state.getState().passed);
+        assertEquals(List.of("test_q[1]"), state.getState().failed);
+    }
+
+    @Test
+    void resetForgetsHandStatuses() {
+        RunParamsState state = new RunParamsState();
+        state.setStatus("test_a", TestStatus.NOT_RUN);
+        state.resetProgress();
+        assertTrue(state.getState().pending.isEmpty());
+    }
 }

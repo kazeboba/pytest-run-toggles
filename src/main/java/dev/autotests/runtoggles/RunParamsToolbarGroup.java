@@ -1,5 +1,6 @@
 package dev.autotests.runtoggles;
 
+import com.intellij.execution.RunnerAndConfigurationSettings;
 import com.intellij.execution.runners.ExecutionEnvironment;
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.actionSystem.ActionGroup;
@@ -11,7 +12,7 @@ import com.intellij.openapi.actionSystem.Separator;
 import com.intellij.openapi.actionSystem.ex.CheckboxAction;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
-import com.jetbrains.python.testing.PyTestConfiguration;
+import com.jetbrains.python.testing.PyAbstractTestConfiguration;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -33,12 +34,12 @@ public final class RunParamsToolbarGroup extends ActionGroup implements DumbAwar
         return ActionUpdateThread.EDT;
     }
 
-    /** Only for pytest runs; shown when the tab's run profile is unknown. */
+    /** Only for pytest (and Autodetect) runs; shown when the tab's run profile is unknown. */
     @Override
     public void update(@NotNull AnActionEvent event) {
         ExecutionEnvironment environment = event.getData(LangDataKeys.EXECUTION_ENVIRONMENT);
         event.getPresentation().setEnabledAndVisible(event.getProject() != null
-                && (environment == null || environment.getRunProfile() instanceof PyTestConfiguration));
+                && (environment == null || RunParamsSync.pytestLike(environment.getRunProfile()) != null));
     }
 
     @Override
@@ -58,10 +59,19 @@ public final class RunParamsToolbarGroup extends ActionGroup implements DumbAwar
         }
         if (state.getState().toolbarProgress) {
             actions.add(Separator.getInstance());
+            actions.add(ModuleCleanupAction.INSTANCE);
             actions.add(ModuleStatsAction.INSTANCE);
         }
         actions.add(OPEN_PANEL);
         return actions.toArray(AnAction.EMPTY_ARRAY);
+    }
+
+    /** A run of a saved configuration: the panel doesn't reach it, so its checkboxes edit its own arguments. */
+    static @Nullable RunnerAndConfigurationSettings savedRun(@NotNull AnActionEvent event) {
+        ExecutionEnvironment environment = event.getData(LangDataKeys.EXECUTION_ENVIRONMENT);
+        RunnerAndConfigurationSettings settings = environment == null ? null : environment.getRunnerAndConfigurationSettings();
+        return settings != null && !settings.isTemporary() && RunParamsSync.pytestLike(settings.getConfiguration()) != null
+                ? settings : null;
     }
 
     /** '--maxfail=1' → 'maxfail=1', a 0/1 option → 'debugging'; short options keep the dash ('-x', '-k smoke'). */
@@ -86,20 +96,35 @@ public final class RunParamsToolbarGroup extends ActionGroup implements DumbAwar
         @Override
         public void update(@NotNull AnActionEvent event) {
             super.update(event);
-            event.getPresentation().setText(label(param), false);
+            RunnerAndConfigurationSettings saved = savedRun(event);
+            String own = saved == null ? null : ConfigArgs.label(arguments(saved), param);
+            event.getPresentation().setText(own != null ? own : label(param), false);
+            event.getPresentation().setDescription(saved == null ? null : "Option of the saved configuration '"
+                    + saved.getName() + "': changes its own arguments, Rerun applies them");
         }
 
         @Override
         public boolean isSelected(@NotNull AnActionEvent event) {
-            return param.on();
+            RunnerAndConfigurationSettings saved = savedRun(event);
+            return saved == null ? param.on() : ConfigArgs.isOn(arguments(saved), param);
         }
 
         @Override
         public void setSelected(@NotNull AnActionEvent event, boolean state) {
+            RunnerAndConfigurationSettings saved = savedRun(event);
+            if (saved != null) {
+                RunParamsSync.set(saved.getConfiguration(), ConfigArgs.toggle(arguments(saved), param, state));
+                return;
+            }
             param.setOn(state);
             if (event.getProject() != null) {
                 RunParamsSync.apply(event.getProject(), this);
             }
+        }
+
+        private static String arguments(RunnerAndConfigurationSettings saved) {
+            PyAbstractTestConfiguration test = RunParamsSync.pytestLike(saved.getConfiguration());
+            return test == null ? "" : test.getAdditionalArguments();
         }
     }
 }
