@@ -7,7 +7,7 @@ import com.intellij.openapi.actionSystem.ActionGroup;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.LangDataKeys;
+import com.intellij.openapi.actionSystem.DataKey;
 import com.intellij.openapi.actionSystem.Separator;
 import com.intellij.openapi.actionSystem.ex.CheckboxAction;
 import com.intellij.openapi.project.DumbAware;
@@ -24,6 +24,10 @@ import java.util.WeakHashMap;
 /** Run tab toolbar of pytest runs: one checkbox per option (single click) and a gear that opens the panel. */
 public final class RunParamsToolbarGroup extends ActionGroup implements DumbAware {
 
+    /** The key of LangDataKeys.EXECUTION_ENVIRONMENT (deprecated; its replacement ExecutionDataKeys is missing before 2024.3):
+     * data keys are matched by name. */
+    private static final DataKey<ExecutionEnvironment> EXECUTION_ENVIRONMENT = DataKey.create("executionEnvironment");
+
     private static final AnAction OPEN_PANEL = new OpenParamsPanelAction("Pytest Params", AllIcons.General.Settings);
 
     /** the same instances across toolbar updates — otherwise the checkboxes are recreated and flicker */
@@ -37,7 +41,7 @@ public final class RunParamsToolbarGroup extends ActionGroup implements DumbAwar
     /** Only for pytest (and Autodetect) runs; shown when the tab's run profile is unknown. */
     @Override
     public void update(@NotNull AnActionEvent event) {
-        ExecutionEnvironment environment = event.getData(LangDataKeys.EXECUTION_ENVIRONMENT);
+        ExecutionEnvironment environment = event.getData(EXECUTION_ENVIRONMENT);
         event.getPresentation().setEnabledAndVisible(event.getProject() != null
                 && (environment == null || RunParamsSync.pytestLike(environment.getRunProfile()) != null));
     }
@@ -68,7 +72,7 @@ public final class RunParamsToolbarGroup extends ActionGroup implements DumbAwar
 
     /** A run of a saved configuration: the panel doesn't reach it, so its checkboxes edit its own arguments. */
     static @Nullable RunnerAndConfigurationSettings savedRun(@NotNull AnActionEvent event) {
-        ExecutionEnvironment environment = event.getData(LangDataKeys.EXECUTION_ENVIRONMENT);
+        ExecutionEnvironment environment = event.getData(EXECUTION_ENVIRONMENT);
         RunnerAndConfigurationSettings settings = environment == null ? null : environment.getRunnerAndConfigurationSettings();
         return settings != null && !settings.isTemporary() && RunParamsSync.pytestLike(settings.getConfiguration()) != null
                 ? settings : null;

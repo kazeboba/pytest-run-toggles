@@ -3,15 +3,65 @@
     <name>Pytest Run Params</name>
     <vendor url="https://github.com/kazeboba/pytest-run-toggles">Ilia Rumyantcev</vendor>
     <description><![CDATA[
-        Pytest Params panel: pytest run options as checkboxes. Standard pytest options are added with «+»,
-        custom ones (e.g. conftest options) are typed in; every row has a checkbox, a value and a remove button.<br>
-        Enabled options become the Additional Arguments of the pytest template and of temporary (▶) configurations;
-        saved configurations are left untouched. The same checkboxes are available on the Run tab toolbar
-        of pytest runs and in the status bar.<br>
-        Run with Pytest Params (Project view) runs a folder or test file as a temporary configuration with these options,
-        even when a saved configuration has the same target (the standard Run reuses it). On the Run tab of a saved
-        configuration the checkboxes edit that configuration's own arguments. pytest and Autodetect configurations are supported.
+        <p>pytest run options as checkboxes, and a progress counter that helps to rerun a module or a folder
+        until everything is green.</p>
+
+        <h3>Run options</h3>
+        <ul>
+            <li><b>Pytest Params</b> tool window: standard pytest options are added with «+»
+                (<code>-x</code>, <code>--maxfail</code>, <code>-k</code>, <code>--lf</code>…), custom ones
+                (e.g. conftest options like <code>--debugging=0</code>) are typed in. Every row has a drag handle,
+                a checkbox, a value and a remove button.</li>
+            <li>Options that <code>conftest.py</code> declares as integers with default 0 or 1 show as a single
+                checkbox that sets the value: checked is <code>=1</code>, unchecked is <code>=0</code>.</li>
+            <li>The same checkboxes are on the Run tab toolbar of pytest runs and in the status bar.</li>
+            <li>Enabled options become the Additional Arguments of the pytest template and of temporary (▶)
+                configurations. Saved configurations are left untouched: on the Run tab of a saved configuration
+                the checkboxes edit that configuration's own arguments.</li>
+            <li><b>Run with Pytest Params</b> in the Project view menu runs a folder or a test file as a temporary
+                configuration with these options, even when a saved configuration has the same target
+                (the standard Run reuses it).</li>
+        </ul>
+
+        <h3>Progress and clean-up</h3>
+        <ul>
+            <li>The Run tab toolbar counts passed (✔), failed (✖) and not run (○) tests of the module (a test file)
+                or the folder you ran. A run of another module or folder starts the count from scratch; a module,
+                a subfolder or a single test inside the counted folder adds to its progress.</li>
+            <li>Click the counters to see every test with its status. A click on a test moves it to the next status
+                (passed, not run, failed), Cmd/Ctrl-click opens the test, <i>Reset progress</i> forgets the results.</li>
+            <li><b>Clean Up Module</b> (the broom button next to the counters and in the Project view menu) runs
+                only the failed and not run tests of the counted module or folder: passed tests are skipped with
+                <code>--deselect</code> for that one run, Rerun and ▶ run everything again.</li>
+        </ul>
+
+        <p>pytest and Autodetect test configurations are supported. Options and progress are stored per project in
+        <code>.idea/workspace.xml</code>; what is written and shown is set in Settings | Tools | Pytest Run Params.</p>
     ]]></description>
+
+    <change-notes><![CDATA[
+        <h4>1.18.2</h4>
+        <ul>
+            <li>Requires IDE 2024.3 or newer: the progress counter and popup use IDE API that older versions do not have,
+                so the plugin could not work there.</li>
+            <li>The list of standard options no longer uses <code>SimpleListCellRenderer.create</code>
+                (scheduled for removal in the IDE).</li>
+        </ul>
+        <h4>1.18.1</h4>
+        <ul>
+            <li>Fixed: running a folder (e.g. <code>tests</code>) did not reset the counters, the tests were not counted
+                and Clean Up Module reran the previous module. A folder is now counted like a module, over all test
+                modules below it; Clean Up Module works for it, including the Project view menu of a folder.</li>
+            <li>No more deprecated, experimental or internal IDE APIs reported by the Plugin Verifier.</li>
+        </ul>
+        <h4>1.18.0</h4>
+        <ul>
+            <li>Progress popup: every test with its status, a click moves it to the next one, Cmd/Ctrl-click opens the test.</li>
+            <li>Clean Up Module runs once, the permanent «Clean up module» toggle is gone.</li>
+            <li>Clean Up Module in the Project view menu of a test module: on the counted one it runs its clean-up,
+                on another one it switches the counter to it and runs it.</li>
+        </ul>
+    ]]></change-notes>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.python</depends>
@@ -33,7 +83,7 @@
         </action>
         <action id="PytestParams.CleanupModule" class="dev.autotests.runtoggles.ModuleCleanupAction"
                 text="Clean Up Module" icon="/icons/cleanupModule.svg"
-                description="Run only failed and not run tests of the counted module (passed tests are skipped)">
+                description="Run only failed and not run tests of the counted module or folder (passed tests are skipped)">
             <add-to-group group-id="ProjectViewPopupMenuRunGroup" anchor="last"/>
         </action>
         <group id="PytestParams.RunTab" class="dev.autotests.runtoggles.RunParamsToolbarGroup"

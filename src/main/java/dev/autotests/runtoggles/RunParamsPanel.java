@@ -22,6 +22,7 @@ import com.intellij.util.ui.JBUI;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.JComponent;
+import javax.swing.JList;
 import javax.swing.BorderFactory;
 import javax.swing.JPanel;
 import javax.swing.JSpinner;
@@ -227,7 +228,14 @@ final class RunParamsPanel extends JPanel implements Disposable {
     private void chooseStandard(JComponent anchor) {
         JBPopupFactory.getInstance()
                 .createPopupChooserBuilder(List.of(StandardOption.values()))
-                .setRenderer(SimpleListCellRenderer.create("", StandardOption::display))
+                .setRenderer(new SimpleListCellRenderer<StandardOption>() {
+                    // a subclass, not SimpleListCellRenderer.create(...): both overloads of create are on the way out
+                    @Override
+                    public void customize(@NotNull JList<? extends StandardOption> list, StandardOption option, int index,
+                                          boolean selected, boolean hasFocus) {
+                        setText(option == null ? "" : option.display());
+                    }
+                })
                 .setItemChosenCallback(option -> {
                     state.add(List.of(option.toParam()));
                     changed();

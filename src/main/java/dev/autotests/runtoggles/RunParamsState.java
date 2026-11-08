@@ -78,9 +78,10 @@ public final class RunParamsState implements PersistentStateComponent<RunParamsS
     public static final class Data {
         public List<Param> params = new ArrayList<>();
         public boolean seeded;
-        /** absolute path of the test module whose progress is counted */
+        /** absolute path of the test module or folder whose progress is counted (the field name stays: saved state) */
         public String progressModule;
-        /** results in the tracked module: 'test_x', 'TestClass::test_y', 'test_z[1]' */
+        /** results in the tracked scope: 'test_x', 'TestClass::test_y', 'test_z[1]'; for a folder with the module
+         * path in front: 'sub/test_mod.py::test_x' */
         public List<String> passed = new ArrayList<>();
         public List<String> failed = new ArrayList<>();
         /** tests set to 'not run' by hand: 'test_z[1]' can't be derived from the module's functions, so it is kept here */
@@ -112,7 +113,7 @@ public final class RunParamsState implements PersistentStateComponent<RunParamsS
         return data.params;
     }
 
-    /** Another module starts its progress from scratch. */
+    /** Another module or folder starts its progress from scratch. */
     void trackModule(String module) {
         if (!module.equals(data.progressModule)) {
             data.progressModule = module;

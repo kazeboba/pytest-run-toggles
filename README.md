@@ -2,6 +2,9 @@
 
 PyCharm plugin: pytest run options as checkboxes.
 
+Requires IDE 2024.3 or newer (build 243+) with the Python plugin: PyCharm, or another JetBrains IDE where the
+Python plugin is installed.
+
 - **Pytest Params** tool window (right side):
   - **Standard** — pytest options, added with «+» from a list (`-x`, `--maxfail`, `-k`, `--lf`…);
   - **Custom** — input field (`--debugging=0`, `--retest=1`, several at once separated by spaces, Enter adds).
@@ -17,26 +20,24 @@ PyCharm plugin: pytest run options as checkboxes.
 - **Autodetect** test configurations (the default test runner of a new project) are handled like pytest ones.
 
 **Module progress** (Run tab toolbar: `✔ passed  ✖ failed  ○ not run`):
-- test results of the module (a test file) are counted from PyCharm's test runner events; the latest result
-  of a test wins;
-- a module run of another file switches counting to it and starts from scratch; folder runs are ignored,
-  single tests of the counted module update its results; skipped tests stay «not run»;
-- clicking the counters opens a menu: **Clean up module**, **Reset progress** and the tests of the module with a mark
-  (green ✔ passed, grey ○ not run, red ✖ failed). A click on a test moves it to the next status
+- test results of the module (a test file) or of a folder (all test modules below it, its tests are listed as
+  `sub/test_mod.py::test_x`) are counted from PyCharm's test runner events; the latest result of a test wins;
+- a run of another module or folder switches counting to it and starts from scratch; a module, a subfolder or
+  a single test inside the counted folder updates its results instead; single tests of the counted module update
+  its results; skipped tests stay «not run»;
+- clicking the counters opens a menu: **Reset progress** (forgets the results) and the tests of the module or folder
+  with a mark (green ✔ passed, grey ○ not run, red ✖ failed). A click on a test moves it to the next status
   (✔ → ○ → ✖ → ✔): a passed test set to ○ or ✖ joins the clean-up rerun, a failed one set to ✔ leaves it. The list stays open,
-  so several tests can be switched in a row; the counters and the `--deselect` follow at once. ⌘/Ctrl-click opens the test.
+  so several tests can be switched in a row; the counters follow at once. ⌘/Ctrl-click opens the test.
   A status set by hand lasts until the test really runs (its result replaces it) or the progress is reset.
-- **▶🧹 Clean Up Module** button (left of the counters, icon: play with a broom): runs the counted module as a temporary
-  configuration with the panel options and `--deselect` for every passed test — only failed and not run tests run,
-  exactly as with **Clean up module** ticked. The tick itself stays as it was (the `--deselect` is not left in the
-  configuration, Rerun and ▶ run the full module again unless the tick is on). Disabled when every test has passed;
-  shown with the counters («Show module progress» in Settings).
-
-**Clean up module** (off by default, for projects without their own skipping of passed tests — pytest's `--lf`
-remembers only the last failures): while it is on, a run of the counted module gets `--deselect <module>::<test>`
-for every passed test, so after fixes the module is run again and again until no failed or not run tests remain.
-A passed test whose id starts an unfinished test's id is kept (pytest matches `--deselect` by prefix).
-Folder runs and other modules are not filtered. «Reset progress» forgets the results.
+- **▶🧹 Clean Up Module** button (left of the counters, icon: play with a broom; also in the Project view menu of a test
+  module or folder): runs the counted module or folder as a temporary configuration with the panel options and
+  `--deselect <node id>` for every passed test — only failed and not run tests run, so after fixes the same run can be
+  repeated until nothing is left. The `--deselect` is for that one run only: Rerun and ▶ run everything again. Disabled when
+  every test has passed; shown with the counters («Show module progress» in Settings). In the Project view menu
+  the broom on another module or folder switches the counter to it (progress from scratch) and runs it.
+- A passed test whose id starts an unfinished test's id is kept in the rerun (pytest matches `--deselect` by prefix).
+  Runs of other modules or folders (and of a module inside the counted folder) are not filtered.
 
 Row = drag handle ⋮⋮ (reorder within the block; order = argument order) + checkbox + value + remove.
 - **0/1 options** (int options with default 0 or 1 in the project's `conftest.py`, e.g. `--debugging`):
@@ -66,6 +67,6 @@ JUnit 4 is on the test runtime classpath because the IDE's test framework needs 
 Unit tests (pure logic: parsing, arguments, conftest detection, test keys, `--deselect`): `./gradlew test`.
 
 ## Install
-Unzip into `~/Library/Application Support/JetBrains/PyCharmCE2023.1/plugins/` (remove the old jar from
+Unzip into `~/Library/Application Support/JetBrains/PyCharm<version>/plugins/` (remove the old jar from
 `at-run-toggles/lib`) or Settings → Plugins → ⚙ → Install Plugin from Disk, then restart PyCharm.
 After a major PyCharm update, fix the path in `build.gradle.kts` and rebuild.

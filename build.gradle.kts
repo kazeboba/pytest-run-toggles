@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "dev.autotests"
-version = "1.18.0"
+version = "1.18.2"
 
 repositories {
     mavenCentral()
@@ -48,7 +48,7 @@ intellijPlatform {
     }
     pluginConfiguration {
         ideaVersion {
-            sinceBuild = "231"
+            sinceBuild = "243"
             untilBuild = provider { null }
         }
     }

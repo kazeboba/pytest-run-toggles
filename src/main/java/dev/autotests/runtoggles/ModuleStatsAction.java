@@ -9,6 +9,7 @@ import com.intellij.openapi.actionSystem.DefaultActionGroup;
 import com.intellij.openapi.actionSystem.KeepPopupOnPerform;
 import com.intellij.openapi.actionSystem.Presentation;
 import com.intellij.openapi.actionSystem.Separator;
+import com.intellij.openapi.actionSystem.ex.ActionUtil;
 import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
@@ -33,7 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
-/** Run tab toolbar: '✔ 18  ✖ 2  ○ 5' — passed, failed and not run tests of the module. Click opens a menu:
+/** Run tab toolbar: '✔ 18  ✖ 2  ○ 5' — passed, failed and not run tests of the module or folder. Click opens a menu:
  * Reset progress and the tests: a click moves a test to the next status, ⌘/Ctrl-click opens it.
  * (The permanent 'Clean up module' toggle was removed 2026-10-28: it duplicated the one-off
  * clean-up run button of the toolbar; the one-off button is the only clean-up entry point now.) */
@@ -46,9 +47,8 @@ final class ModuleStatsAction extends AnAction implements DumbAware {
         return ActionUpdateThread.EDT;
     }
 
-    @Override
-    public boolean displayTextInToolbar() {
-        return true;
+    private ModuleStatsAction() {
+        getTemplatePresentation().putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, true);
     }
 
     @Override
@@ -86,7 +86,7 @@ final class ModuleStatsAction extends AnAction implements DumbAware {
                 .forEach(test -> menu.add(new TestRow(test, module, popupRef)));
         // short title (module name); the click hints go to the grey ad line at the popup bottom
         JBPopup popup = JBPopupFactory.getInstance().createActionGroupPopup(
-                new File(module).getName() + " — module progress", menu,
+                new File(module).getName() + " — progress", menu,
                 event.getDataContext(), JBPopupFactory.ActionSelectionAid.SPEEDSEARCH, true);
         if (popup instanceof AbstractPopup abstractPopup) {
             abstractPopup.setAdText("Click — next status · ⌘/Ctrl-click — open the test", SwingConstants.LEFT);
@@ -103,7 +103,7 @@ final class ModuleStatsAction extends AnAction implements DumbAware {
     private static final class ResetProgress extends AnAction implements DumbAware {
 
         ResetProgress() {
-            super("Reset progress", "Forget the results: the next module run runs all tests", AllIcons.Actions.Rollback);
+            super("Reset progress", "Forget the results: the next run runs all tests", AllIcons.Actions.Rollback);
         }
 
         @Override
@@ -178,11 +178,23 @@ final class ModuleStatsAction extends AnAction implements DumbAware {
             ActivityTracker.getInstance().inc();
         }
 
-        /** 'test_x', 'TestClass::test_y', 'test_z[1]' → the test function in the module file. */
+        /** 'test_x', 'TestClass::test_y', 'test_z[1]' → the test function in the module file;
+         * in a folder the key starts with the module path ('sub/test_mod.py::test_x'). */
         private void open(Project project) {
-            String[] path = test.replaceAll("\\[.*$", "").split("::");
+            String modulePath = module;
+            String name = test;
+            if (ModuleProgress.isFolder(module)) {
+                int separator = test.indexOf("::");
+                if (separator < 0) {
+                    return;
+                }
+                modulePath = new File(module, test.substring(0, separator)).getPath();
+                name = test.substring(separator + 2);
+            }
+            String moduleFile = modulePath;
+            String[] path = name.replaceAll("\\[.*$", "").split("::");
             PyFunction function = ReadAction.compute(() -> {
-                VirtualFile virtualFile = LocalFileSystem.getInstance().findFileByPath(module);
+                VirtualFile virtualFile = LocalFileSystem.getInstance().findFileByPath(moduleFile);
                 PsiFile psi = virtualFile == null ? null : PsiManager.getInstance(project).findFile(virtualFile);
                 if (!(psi instanceof PyFile file)) {
                     return null;

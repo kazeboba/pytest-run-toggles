@@ -1,6 +1,7 @@
 package dev.autotests.runtoggles;
 
 import com.intellij.ui.JBColor;
+import com.intellij.ui.scale.JBUIScale;
 import com.intellij.util.ui.JBUI;
 
 import javax.swing.Icon;
@@ -45,7 +46,7 @@ final class StatusIcon implements Icon {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
             g.translate(x, y);
-            g.scale(JBUI.scale(1f), JBUI.scale(1f));
+            g.scale(JBUIScale.scale(1f), JBUIScale.scale(1f));
             g.setStroke(new BasicStroke(status == TestStatus.NOT_RUN ? 1.5f : 2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
             switch (status) {
                 case PASSED -> {

@@ -88,11 +88,12 @@ final class RunParamsSync {
         }
     }
 
-    /** Clean up module: --deselect goes only to the run of the counted module itself, folder and other runs stay complete. */
+    /** Clean up: --deselect goes only to the run of the counted module or folder itself, runs of other targets
+     * (and of a module inside the counted folder) stay complete. */
     static String argsFor(Project project, RunConfiguration configuration, String args, List<String> deselect) {
-        String module = ModuleProgress.moduleOf(project, configuration);
-        if (deselect.isEmpty() || module == null
-                || !module.equals(RunParamsState.getInstance(project).getState().progressModule)) {
+        String scope = ModuleProgress.scopeOf(project, configuration);
+        if (deselect.isEmpty() || scope == null
+                || !scope.equals(RunParamsState.getInstance(project).getState().progressModule)) {
             return args;
         }
         List<String> tokens = new ArrayList<>(ParametersListUtil.parse(args));

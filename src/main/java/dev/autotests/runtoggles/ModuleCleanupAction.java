@@ -13,7 +13,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.IconLoader;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiFile;
+import com.intellij.psi.PsiFileSystemItem;
 import com.intellij.psi.PsiManager;
 import org.jetbrains.annotations.NotNull;
 
@@ -21,9 +21,9 @@ import javax.swing.Icon;
 import java.io.File;
 
 /** Run tab toolbar (left of the module counter): a one-off clean-up run — only failed and not run tests of
- * the counted module, passed tests are skipped. In the project tree context menu the broom shows on every
- * test module: on the counted one it runs its clean-up, on another one it switches the counter to that
- * module (progress starts from scratch) and runs it. */
+ * the counted module or folder, passed tests are skipped. In the project tree context menu the broom shows on every
+ * test module and folder: on the counted one it runs its clean-up, on another one it switches the counter to that
+ * module or folder (progress starts from scratch) and runs it. */
 final class ModuleCleanupAction extends AnAction implements DumbAware {
 
     // ICON goes first: the constructor of INSTANCE reads it, a later field would still be null there
@@ -81,15 +81,14 @@ final class ModuleCleanupAction extends AnAction implements DumbAware {
                 : "Clean up module: run only failed and not run tests of " + module + " (passed tests are skipped)");
     }
 
-    /** The clicked test module ('test_*.py') when the action sits in the project tree context menu, else null. */
+    /** The clicked test module ('test_*.py') or folder when the action sits in the project tree context menu, else null. */
     private static VirtualFile contextMenuModule(AnActionEvent event) {
         if (!ActionPlaces.PROJECT_VIEW_POPUP.equals(event.getPlace())) {
             return null;
         }
         VirtualFile clicked = event.getData(CommonDataKeys.VIRTUAL_FILE);
-        boolean testModule = clicked != null && !clicked.isDirectory()
-                && clicked.getName().startsWith("test_") && clicked.getName().endsWith(".py");
-        return testModule ? clicked : null;
+        boolean testTarget = clicked != null && RunWithParamsAction.isTestTarget(clicked.getName(), clicked.isDirectory());
+        return testTarget ? clicked : null;
     }
 
     @Override
@@ -101,7 +100,7 @@ final class ModuleCleanupAction extends AnAction implements DumbAware {
         RunParamsState state = RunParamsState.getInstance(project);
         VirtualFile clicked = contextMenuModule(event);
         if (clicked != null && !clicked.getPath().equals(state.getState().progressModule)) {
-            // the broom on another module: the counter switches to it, its progress starts from scratch
+            // the broom on another module or folder: the counter switches to it, its progress starts from scratch
             state.trackModule(clicked.getPath());
             RunParamsSync.apply(project, this);
         }
@@ -109,12 +108,16 @@ final class ModuleCleanupAction extends AnAction implements DumbAware {
         if (module == null) {
             return;
         }
-        PsiFile file = ReadAction.compute(() -> {
+        PsiFileSystemItem target = ReadAction.compute(() -> {
             VirtualFile virtualFile = LocalFileSystem.getInstance().findFileByPath(module);
-            return virtualFile == null ? null : PsiManager.getInstance(project).findFile(virtualFile);
+            if (virtualFile == null) {
+                return null;
+            }
+            return virtualFile.isDirectory() ? PsiManager.getInstance(project).findDirectory(virtualFile)
+                    : PsiManager.getInstance(project).findFile(virtualFile);
         });
-        if (file != null) {
-            RunWithParamsAction.run(project, ConfigurationContext.createEmptyContextForLocation(PsiLocation.fromPsiElement(file)),
+        if (target != null) {
+            RunWithParamsAction.run(project, ConfigurationContext.createEmptyContextForLocation(PsiLocation.fromPsiElement(target)),
                     true);
         }
     }

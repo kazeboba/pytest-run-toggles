@@ -32,6 +32,71 @@ class ModuleProgressTest {
         assertNull(ModuleProgress.testKey(null, MODULE));
     }
 
+    private static final List<String> FOLDER = List.of("test_alpha.py", "test_beta.py", "sub/test_alpha.py", "sub/deep/test_gamma.py");
+
+    @Test
+    void folderTestKeyCarriesTheModulePath() {
+        assertEquals("test_beta.py::test_case_1", ModuleProgress.folderTestKey("python</p>://tests.test_beta.test_case_1", FOLDER));
+        assertEquals("test_beta.py::TestGroup::test_b",
+                ModuleProgress.folderTestKey("python</p>://tests.test_beta.TestGroup.test_b", FOLDER));
+        assertEquals("sub/deep/test_gamma.py::test_param[2]",
+                ModuleProgress.folderTestKey("python</p>://tests.sub.deep.test_gamma.test_param[2]", FOLDER));
+    }
+
+    @Test
+    void folderTestKeyOfSameNamedModulesIsToldApartBySubfolder() {
+        assertEquals("sub/test_alpha.py::test_x", ModuleProgress.folderTestKey("python</p>://tests.sub.test_alpha.test_x", FOLDER));
+        assertEquals("test_alpha.py::test_x", ModuleProgress.folderTestKey("python</p>://tests.test_alpha.test_x", FOLDER));
+    }
+
+    @Test
+    void folderTestKeyNeedsOnlyAUniqueModuleNameWhenTheUrlLacksSubfolders() {
+        assertEquals("sub/deep/test_gamma.py::test_x", ModuleProgress.folderTestKey("python</p>://test_gamma.test_x", FOLDER));
+        // a module name that exists twice can't be told without the subfolder
+        assertNull(ModuleProgress.folderTestKey("python</p>://test_alpha.test_x", List.of("a/test_alpha.py", "b/test_alpha.py")));
+    }
+
+    @Test
+    void folderTestKeyOfAnotherModuleOrBadUrlIsNull() {
+        assertNull(ModuleProgress.folderTestKey("python</p>://tests.test_other.test_x", FOLDER));
+        assertNull(ModuleProgress.folderTestKey("python</p>://tests.test_beta", FOLDER));
+        assertNull(ModuleProgress.folderTestKey("no-separator", FOLDER));
+        assertNull(ModuleProgress.folderTestKey(null, FOLDER));
+    }
+
+    @Test
+    void pathInsideTheCountedFolderReportsToIt() {
+        assertTrue(ModuleProgress.isInside("/p/tests/test_alpha.py", "/p/tests"));
+        assertTrue(ModuleProgress.isInside("/p/tests/sub", "/p/tests"));
+        assertTrue(ModuleProgress.isInside("/p/tests", "/p/tests"));
+        assertFalse(ModuleProgress.isInside("/p/tests_old/test_alpha.py", "/p/tests"));
+        assertFalse(ModuleProgress.isInside("/p", "/p/tests"));
+    }
+
+    @Test
+    void nodePrefixOfAFolderEndsWithASlashOfAModuleWithColons() {
+        assertEquals("tests/test_alpha.py::", ModuleProgress.nodePrefix("tests/test_alpha.py", false));
+        assertEquals("tests/", ModuleProgress.nodePrefix("tests", true));
+        assertEquals("", ModuleProgress.nodePrefix("", true));
+    }
+
+    @Test
+    void folderDeselectUsesTheFolderKeys() {
+        List<String> args = ModuleProgress.deselectArgs(List.of("test_beta.py::test_1", "sub/test_alpha.py::TestG::test_2"),
+                List.of("test_beta.py::test_12"), ModuleProgress.nodePrefix("tests", true));
+        assertEquals(List.of("--deselect=tests/sub/test_alpha.py::TestG::test_2"), args);
+    }
+
+    @Test
+    void pytestDoesNotCollectFromTheseFolders() {
+        assertTrue(ModuleProgress.isSkippedDir("__pycache__"));
+        assertTrue(ModuleProgress.isSkippedDir(".git"));
+        assertTrue(ModuleProgress.isSkippedDir("venv"));
+        assertTrue(ModuleProgress.isSkippedDir("pkg.egg"));
+        assertFalse(ModuleProgress.isSkippedDir("pages"));
+        assertFalse(ModuleProgress.isSkippedDir("sub"));
+    }
+
     @Test
     void deselectKeepsPassedTestThatPrefixesAnUnfinishedOne() {
         List<String> args = ModuleProgress.deselectArgs(List.of("test_case_1", "test_alpha_1"),
