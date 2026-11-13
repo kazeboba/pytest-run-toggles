@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "dev.autotests"
-version = "1.19.0"
+version = "2.0.0"
 
 // Machine-specific settings (the IDE to build against) live in local.properties, which is not committed:
 // copy local.properties.example to local.properties and set ide.path.
