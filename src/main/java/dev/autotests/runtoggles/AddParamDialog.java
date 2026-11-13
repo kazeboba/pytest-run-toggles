@@ -18,15 +18,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/** The window of the «+» button: one standard pytest option from the list, or a custom one typed in
- * ({@code --param=value}, {@code Title: --param=value}, {@code [Title:] --serial={Samsung: ID1, Pixel: ID2}}). */
+/** The window of the «+» button: one standard pytest option from the list, or a custom one in separate fields: the
+ * title of the checkbox (optional), the parameter ({@code --param}, {@code --param=value}) and the options of a
+ * dropdown (optional, {@code Samsung: ID1, Pixel: ID2}). The earlier single-line formats
+ * ({@code Title: --param=value}, {@code [Title:] --serial={Samsung: ID1}}) still work in the parameter field. */
 final class AddParamDialog extends DialogWrapper {
 
     private static final String INT = "-?\\d+";
+    private static final String OPTION_NAME = "-{1,2}[A-Za-z][\\w-]*";
 
     private final Map<String, String> intOptions;
     private final ComboBox<Object> standard;
-    private final JBTextField custom = new JBTextField();
+    private final JBTextField title = new JBTextField();
+    private final JBTextField parameter = new JBTextField();
+    private final JBTextField options = new JBTextField();
     private List<RunParamsState.Param> result = List.of();
 
     AddParamDialog(Project project, Map<String, String> intOptions) {
@@ -55,16 +60,19 @@ final class AddParamDialog extends DialogWrapper {
 
     @Override
     protected @Nullable JComponent createCenterPanel() {
-        custom.getEmptyText().setText("--param=value");
-        JBLabel hint = new JBLabel("<html>Custom formats:<br>"
-                + "&nbsp;&nbsp;--param=value<br>"
-                + "&nbsp;&nbsp;Title: --param=value — the checkbox is named Title<br>"
-                + "&nbsp;&nbsp;[Title:] --serial={Samsung: R58M123456A, Pixel: 1A2B3C4D5E6F} — one option, a dropdown of values"
-                + "</html>");
+        title.getEmptyText().setText("optional: the name of the checkbox, e.g. Device");
+        parameter.getEmptyText().setText("--param  or  --param=value  (several: --retest=1 --shard)");
+        options.getEmptyText().setText("optional: Samsung: R58M123456A, Pixel: 1A2B3C4D5E6F");
+        JBLabel hint = new JBLabel("<html>With options the parameter is only a name (--serial) and the option gets a dropdown "
+                + "of values: the checkbox passes the chosen one.<br>"
+                + "Options are written as <i>Label: value</i>, separated by commas.</html>");
         hint.setForeground(JBColor.GRAY);
         return FormBuilder.createFormBuilder()
                 .addLabeledComponent("Standard option:", standard)
-                .addLabeledComponent("Custom:", custom)
+                .addSeparator(8)
+                .addLabeledComponent("Title:", title)
+                .addLabeledComponent("Parameter:", parameter)
+                .addLabeledComponent("Options:", options)
                 .addComponent(hint)
                 .getPanel();
     }
@@ -91,24 +99,38 @@ final class AddParamDialog extends DialogWrapper {
     /** Fills the rows from the dialog; null — fine, else what is wrong. */
     private ValidationInfo build(List<RunParamsState.Param> out) {
         Object picked = standard.getSelectedItem();
-        String text = custom.getText().trim();
+        String titleText = title.getText().trim();
+        String parameterText = parameter.getText().trim();
+        String optionsText = options.getText().trim();
         boolean hasStandard = picked instanceof StandardOption;
-        if (hasStandard && !text.isEmpty()) {
-            return new ValidationInfo("Fill only one: a standard option or a custom one", custom);
+        boolean hasCustom = !titleText.isEmpty() || !parameterText.isEmpty() || !optionsText.isEmpty();
+        if (hasStandard && hasCustom) {
+            return new ValidationInfo("Fill only one: a standard option or a custom one", parameter);
         }
         if (hasStandard) {
             out.add(((StandardOption) picked).toParam());
             return null;
         }
-        if (text.isEmpty()) {
-            return new ValidationInfo("Choose a standard option or type a custom one", standard);
+        if (!hasCustom) {
+            return new ValidationInfo("Choose a standard option or fill in the parameter", standard);
         }
-        List<RunParamsState.Param> parsed = RunParamsState.parseInput(text, false);
+        if (parameterText.isEmpty()) {
+            return new ValidationInfo("Type the parameter, e.g. --serial", parameter);
+        }
+        if (!optionsText.isEmpty()) {
+            return dropdown(parameterText, titleText, optionsText, out);
+        }
+        List<RunParamsState.Param> parsed = RunParamsState.parseInput(parameterText, false);
         if (parsed.isEmpty()) {
-            return new ValidationInfo("Nothing to add: type --param=value", custom);
+            return new ValidationInfo("Nothing to add: type --param=value", parameter);
         }
-        if (RunParamsState.splitTitle(text) != null && parsed.size() != 1) {
-            return new ValidationInfo("A title goes with exactly one option", custom);
+        if (!titleText.isEmpty()) {
+            if (parsed.size() != 1) {
+                return new ValidationInfo("A title goes with exactly one parameter", title);
+            }
+            parsed.get(0).title = titleText;
+        } else if (RunParamsState.splitTitle(parameterText) != null && parsed.size() != 1) {
+            return new ValidationInfo("A title goes with exactly one parameter", parameter);
         }
         for (RunParamsState.Param param : parsed) {
             if (param.hasChoices()) {
@@ -120,11 +142,28 @@ final class AddParamDialog extends DialogWrapper {
             }
             boolean integer = param.value != null && param.value.trim().matches(INT);
             if (knownInt && !integer) {
-                return new ValidationInfo(param.name + " expects an integer", custom);
+                return new ValidationInfo(param.name + " expects an integer", parameter);
             }
             param.numeric = integer;
         }
         out.addAll(parsed);
+        return null;
+    }
+
+    /** One parameter with a dropdown: the name from the parameter field, the values from the options field. */
+    private ValidationInfo dropdown(String name, String titleText, String optionsText, List<RunParamsState.Param> out) {
+        if (!name.matches(OPTION_NAME)) {
+            return new ValidationInfo("With options the parameter is only a name, e.g. --serial", parameter);
+        }
+        List<RunParamsState.Choice> values = RunParamsState.parseChoices(optionsText);
+        if (values.isEmpty()) {
+            return new ValidationInfo("Options: Samsung: R58M123456A, Pixel: 1A2B3C4D5E6F", options);
+        }
+        RunParamsState.Param param = new RunParamsState.Param(name, null, false);
+        param.choices = values;
+        param.select(0);
+        param.title = titleText.isEmpty() ? null : titleText;
+        out.add(param);
         return null;
     }
 }

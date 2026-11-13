@@ -19,10 +19,10 @@
                 the editor. The ticks and the search are kept; the directories and modules with ticked tests move to the
                 top 0.2 s after the last tick, the tests of a module keep their order; the tree does not scroll after the moved row; the Run button runs what is ticked. <b>Add to Sequence</b> (right click on the name of a test in the
                 editor, or on test modules and directories in the Project view) ticks them in the tree.</li>
-            <li><b>Values to choose from:</b> <code>[Title:] --serial={Samsung: R58M123456A, Pixel: 1A2B3C4D5E6F}</code> in
-                the window of the + button makes one option with a dropdown: a checkbox (named Title, or the option itself)
-                and a choice between «Samsung: R58M123456A» and «Pixel: 1A2B3C4D5E6F». The selected value is what the option
-                passes.</li>
+            <li><b>Values to choose from:</b> the window of the + button has separate fields: <i>Title</i> (the name of the checkbox,
+                optional), <i>Parameter</i> (<code>--serial</code>) and <i>Options</i> (<code>Samsung: R58M123456A, Pixel: 1A2B3C4D5E6F</code>).
+                With options it makes one option with a dropdown: a checkbox (named Title, or the option itself) and a choice
+                between «Samsung: R58M123456A» and «Pixel: 1A2B3C4D5E6F». The selected value is what the option passes.</li>
             <li>Options that <code>conftest.py</code> declares as integers with default 0 or 1 show as a single
                 checkbox that sets the value: checked is <code>=1</code>, unchecked is <code>=0</code>.</li>
             <li>The same checkboxes are on the Run tab toolbar of pytest runs and in the status bar; the gear on the

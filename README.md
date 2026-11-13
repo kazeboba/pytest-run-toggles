@@ -15,14 +15,16 @@ Python plugin is installed.
   (see below) are only on the toolbar of the Run tabs — and two columns:
   - **Left — the options**: Standard first, Custom after, one column; every row is a drag handle (drag to move it),
     a checkbox, a value and a remove button. The **+** at the right of the «Params» title opens a window: a standard
-    pytest option from a list (`-x`, `--maxfail`, `-k`, `--lf`…) or a custom one typed in:
-    - `--debugging=0`, `--retest=1` — several at once, separated by spaces;
-    - `Title: --param=value` — the checkbox is named `Title`;
-    - `[Title:] --serial={Samsung: R58M123456A, Pixel: 1A2B3C4D5E6F}` — **one option with a dropdown of values**: a
-      checkbox (named `Title`, or `--serial`) and a choice between `Samsung: R58M123456A` and `Pixel: 1A2B3C4D5E6F`;
-      the selected value is what the option passes. (On the Run toolbar and in the status bar menu the option is a
-      checkbox `serial=Samsung`; the value is chosen on the tab.) The separate `Samsung` and `Pixel` rows of the
-      earlier build become one such row.
+    pytest option from a list (`-x`, `--maxfail`, `-k`, `--lf`…) or a custom one, in separate fields:
+    - **Parameter** — `--param` or `--param=value`; several at once, separated by spaces (`--debugging=0 --retest=1`);
+    - **Title** (optional) — the name of the checkbox, for one parameter;
+    - **Options** (optional) — `Samsung: R58M123456A, Pixel: 1A2B3C4D5E6F`: **one option with a dropdown of values**.
+      Then Parameter is only the name (`--serial`); the checkbox is named Title (or `--serial`) and the dropdown has
+      `Samsung: R58M123456A` and `Pixel: 1A2B3C4D5E6F`; the selected value is what the option passes. (On the Run toolbar
+      and in the status bar menu the option is a checkbox `serial=Samsung`; the value is chosen on the tab.) The separate
+      `Samsung` and `Pixel` rows of the earlier build become one such row.
+    - The one-line formats `Title: --param=value` and `[Title:] --serial={Samsung: ID1, Pixel: ID2}` still work in the
+      Parameter field.
   - **Right — what to run**: a tree of directories, modules and tests of the project with checkboxes (ticking a
     directory ticks what is in it), a **search** (by test id or name; several, separated by comma or space — paste
     `8211108, 8220829` to see them) and **Clear** (on the line of «Tests to run», at its right: unticks everything,
