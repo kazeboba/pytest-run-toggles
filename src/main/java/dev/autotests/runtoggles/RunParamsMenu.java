@@ -58,8 +58,8 @@ final class RunParamsMenu {
 
         @Override
         public void setSelected(@NotNull AnActionEvent event, boolean state) {
-            param.setOn(state);
             if (event.getProject() != null) {
+                param.setOn(state);
                 RunParamsSync.apply(event.getProject(), this);
             }
         }

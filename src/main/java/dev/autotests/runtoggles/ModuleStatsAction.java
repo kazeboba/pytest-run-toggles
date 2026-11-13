@@ -1,6 +1,5 @@
 package dev.autotests.runtoggles;
 
-import com.intellij.icons.AllIcons;
 import com.intellij.ide.ActivityTracker;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
@@ -8,22 +7,13 @@ import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DefaultActionGroup;
 import com.intellij.openapi.actionSystem.KeepPopupOnPerform;
 import com.intellij.openapi.actionSystem.Presentation;
-import com.intellij.openapi.actionSystem.Separator;
 import com.intellij.openapi.actionSystem.ex.ActionUtil;
-import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.popup.JBPopup;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.util.Ref;
-import com.intellij.openapi.vfs.LocalFileSystem;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiManager;
 import com.intellij.ui.popup.AbstractPopup;
-import com.jetbrains.python.psi.PyClass;
-import com.jetbrains.python.psi.PyFile;
-import com.jetbrains.python.psi.PyFunction;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.SwingConstants;
@@ -34,8 +24,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
-/** Run tab toolbar: '✔ 18  ✖ 2  ○ 5' — passed, failed and not run tests of the module or folder. Click opens a menu:
- * Reset progress and the tests: a click moves a test to the next status, ⌘/Ctrl-click opens it.
+/** Run tab toolbar: '✔ 18  ✖ 2  ○ 5' — passed, failed and not run tests of the module or folder. Click opens the tests:
+ * a click moves a test to the next status, ⌘/Ctrl-click opens it (the progress is reset with its own button,
+ * {@link ResetProgressAction}).
  * (The permanent 'Clean up module' toggle was removed 2026-10-28: it duplicated the one-off
  * clean-up run button of the toolbar; the one-off button is the only clean-up entry point now.) */
 final class ModuleStatsAction extends AnAction implements DumbAware {
@@ -76,8 +67,6 @@ final class ModuleStatsAction extends AnAction implements DumbAware {
         String module = data.progressModule;
         Ref<JBPopup> popupRef = new Ref<>();
         DefaultActionGroup menu = new DefaultActionGroup();
-        menu.add(new ResetProgress());
-        menu.add(Separator.getInstance());
         // the rows keep their place while statuses change; the order is rebuilt when the list is opened again
         List<String> failed = new ArrayList<>(data.failed);
         List<String> notRun = ModuleProgress.notRun(project, data);
@@ -97,26 +86,6 @@ final class ModuleStatsAction extends AnAction implements DumbAware {
             popup.showUnderneathOf(anchor);
         } else {
             popup.showInBestPositionFor(event.getDataContext());
-        }
-    }
-
-    private static final class ResetProgress extends AnAction implements DumbAware {
-
-        ResetProgress() {
-            super("Reset progress", "Forget the results: the next run runs all tests", AllIcons.Actions.Rollback);
-        }
-
-        @Override
-        public @NotNull ActionUpdateThread getActionUpdateThread() {
-            return ActionUpdateThread.EDT;
-        }
-
-        @Override
-        public void actionPerformed(@NotNull AnActionEvent event) {
-            if (event.getProject() != null) {
-                RunParamsState.getInstance(event.getProject()).resetProgress();
-                RunParamsSync.apply(event.getProject(), this);
-            }
         }
     }
 
@@ -191,23 +160,7 @@ final class ModuleStatsAction extends AnAction implements DumbAware {
                 modulePath = new File(module, test.substring(0, separator)).getPath();
                 name = test.substring(separator + 2);
             }
-            String moduleFile = modulePath;
-            String[] path = name.replaceAll("\\[.*$", "").split("::");
-            PyFunction function = ReadAction.compute(() -> {
-                VirtualFile virtualFile = LocalFileSystem.getInstance().findFileByPath(moduleFile);
-                PsiFile psi = virtualFile == null ? null : PsiManager.getInstance(project).findFile(virtualFile);
-                if (!(psi instanceof PyFile file)) {
-                    return null;
-                }
-                if (path.length == 1) {
-                    return file.findTopLevelFunction(path[0]);
-                }
-                PyClass testClass = file.findTopLevelClass(path[0]);
-                return testClass == null ? null : testClass.findMethodByName(path[1], false, null);
-            });
-            if (function != null) {
-                function.navigate(true);
-            }
+            ModuleProgress.navigate(project, modulePath, name);
         }
     }
 }

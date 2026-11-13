@@ -3,16 +3,13 @@ package dev.autotests.runtoggles;
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.MessageType;
-import com.intellij.openapi.ui.popup.Balloon;
-import com.intellij.openapi.ui.popup.JBPopupFactory;
+import com.intellij.openapi.ui.ComboBox;
 import com.intellij.ui.DocumentAdapter;
 import com.intellij.ui.InplaceButton;
 import com.intellij.ui.JBColor;
 import com.intellij.ui.JBIntSpinner;
 import com.intellij.ui.SimpleListCellRenderer;
 import com.intellij.ui.TitledSeparator;
-import com.intellij.ui.awt.RelativePoint;
 import com.intellij.ui.components.JBCheckBox;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBScrollPane;
@@ -23,7 +20,6 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.swing.JComponent;
 import javax.swing.JList;
-import javax.swing.BorderFactory;
 import javax.swing.JPanel;
 import javax.swing.JSpinner;
 import javax.swing.SwingUtilities;
@@ -37,23 +33,25 @@ import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
-/** Pytest Params panel: «Standard» (pytest options, «+» button) and «Custom» (input field) blocks, one row per option. */
+/** Options editor: one column, «Standard» (pytest options) and then «Custom», one row per option; the «+» at the right
+ * of the «Params» title opens the window that adds an option. */
 final class RunParamsPanel extends JPanel implements Disposable {
 
     private static final int MAX_INT = 1_000_000;
     private static final String INT = "-?\\d+";
     private static final JBColor DROP_COLOR = JBColor.namedColor("DragAndDrop.borderColor", new JBColor(0x2675BF, 0x2F65CA));
-    private static final Border ROW_BORDER = JBUI.Borders.empty(2, 0);
-    private static final Border DROP_ABOVE = BorderFactory.createCompoundBorder(
-            JBUI.Borders.customLine(DROP_COLOR, 2, 0, 0, 0), JBUI.Borders.empty(0, 0, 2, 0));
-    private static final Border DROP_BELOW = BorderFactory.createCompoundBorder(
-            JBUI.Borders.empty(2, 0, 0, 0), JBUI.Borders.customLine(DROP_COLOR, 0, 0, 2, 0));
+    private static final Border ROW_BORDER = JBUI.Borders.empty(1, 0);
+    /** the line above a row: the dragged row goes before it (the same height as ROW_BORDER, so the rows do not jump) */
+    private static final Border DROP_ABOVE = JBUI.Borders.customLine(DROP_COLOR, 2, 0, 0, 0);
+    /** the line below the last row: the dragged row goes to the end of the block */
+    private static final Border DROP_BELOW = JBUI.Borders.customLine(DROP_COLOR, 0, 0, 2, 0);
 
     private final Project project;
     private final RunParamsState state;
     private Map<String, String> intOptions = Map.of();
+    /** the «Params» title with the «+» button: it stays on top while the rows are scrolled */
+    private final JPanel header;
     /** panel content — receives focus on Enter in a number field */
     private JPanel content;
     /** rows of the current rendering — used to find the drop position while dragging */
@@ -66,6 +64,10 @@ final class RunParamsPanel extends JPanel implements Disposable {
         super(new BorderLayout());
         this.project = project;
         this.state = RunParamsState.getInstance(project);
+        JPanel titleRow = SectionHeader.of("Params", addButton());
+        this.header = new JPanel(new BorderLayout());
+        header.add(titleRow, BorderLayout.CENTER);
+        header.setBorder(JBUI.Borders.empty(0, 6, 4, 6));
         // changes from the Run tab toolbar and the status bar; own changes are skipped so input focus is kept
         project.getMessageBus().connect(this).subscribe(RunParamsTopic.TOPIC, source -> {
             if (source != this) {
@@ -82,30 +84,39 @@ final class RunParamsPanel extends JPanel implements Disposable {
     private void rebuild() {
         intOptions = ConftestOptions.intDefaults(project);
         rows.clear();
-        FormBuilder form = FormBuilder.createFormBuilder().addComponent(header("Standard", this::chooseStandard));
+        // one column: Standard, then Custom; no gaps between the rows, the panel is kept low
+        FormBuilder form = FormBuilder.createFormBuilder().setVerticalGap(0).addComponent(header("Standard"));
         state.params().stream().filter(param -> param.standard).forEach(param -> form.addComponent(row(param)));
-        form.addComponent(header("Custom", null));
+        form.addComponent(header("Custom"));
         state.params().stream().filter(param -> !param.standard).forEach(param -> form.addComponent(row(param)));
-        form.addComponent(customInput());
         content = form.addComponentFillVertically(new JPanel(), 0).getPanel();
-        content.setBorder(JBUI.Borders.empty(4, 8));
+        content.setBorder(JBUI.Borders.empty(2, 6));
         content.setFocusable(true);
         removeAll();
-        add(new JBScrollPane(content), BorderLayout.CENTER);
+        add(header, BorderLayout.NORTH);
+        add(SectionHeader.framed(new JBScrollPane(content)), BorderLayout.CENTER);
         revalidate();
         repaint();
     }
 
-    /** Block header; onAdd — «+» button, gets the header as the popup anchor
-     * (the InplaceButton event source is a MouseEvent, not the button). */
-    private static JComponent header(String title, Consumer<JComponent> onAdd) {
-        JPanel header = new JPanel(new BorderLayout());
-        header.add(new TitledSeparator(title), BorderLayout.CENTER);
-        if (onAdd != null) {
-            header.add(new InplaceButton("Add pytest option", AllIcons.General.Add,
-                    event -> onAdd.accept(header)), BorderLayout.EAST);
-        }
-        return header;
+    /** Block header. */
+    private static JComponent header(String title) {
+        TitledSeparator separator = new TitledSeparator(title);
+        separator.setBorder(JBUI.Borders.empty(0, 0, 2, 0));
+        return separator;
+    }
+
+    /** «+»: opens the window that adds a standard or a custom option. */
+    private JComponent addButton() {
+        return new InplaceButton("Add a standard pytest option, a custom one or an option with a dropdown of values",
+                AllIcons.General.Add, event -> {
+            AddParamDialog dialog = new AddParamDialog(project, intOptions);
+            if (dialog.showAndGet()) {
+                state.add(dialog.result());
+                changed();
+                rebuild();
+            }
+        });
     }
 
     private boolean isInt(RunParamsState.Param param) {
@@ -120,7 +131,7 @@ final class RunParamsPanel extends JPanel implements Disposable {
         RowDrag drag = new RowDrag(param);
         handle.addMouseListener(drag);
         handle.addMouseMotionListener(drag);
-        JBCheckBox box = new JBCheckBox(param.name, param.on());
+        JBCheckBox box = new JBCheckBox(param.hasTitle() ? param.title : param.name, param.on());
         box.addActionListener(event -> {
             param.setOn(box.isSelected());
             changed();
@@ -130,7 +141,9 @@ final class RunParamsPanel extends JPanel implements Disposable {
         left.add(box, BorderLayout.CENTER);
         row.add(left, BorderLayout.WEST);
         rows.add(new RowRef(param, row));
-        if (param.binary) {
+        if (param.hasChoices()) {
+            row.add(choicesBox(param), BorderLayout.CENTER);
+        } else if (param.binary) {
             // 0/1 option: the checkbox itself is the value
         } else if (isInt(param)) {
             row.add(numberField(param), BorderLayout.CENTER);
@@ -179,77 +192,31 @@ final class RunParamsPanel extends JPanel implements Disposable {
         return spinner;
     }
 
-    private JComponent customInput() {
-        JBTextField input = new JBTextField();
-        input.getEmptyText().setText("--param=value");
-        input.getDocument().addDocumentListener(new DocumentAdapter() {
+    /** The dropdown of an option with choices ('Samsung: R58M123456A'): the selected one is what the option passes. */
+    private JComponent choicesBox(RunParamsState.Param param) {
+        ComboBox<RunParamsState.Choice> combo = new ComboBox<>(param.choices.toArray(new RunParamsState.Choice[0]));
+        combo.setRenderer(new SimpleListCellRenderer<RunParamsState.Choice>() {
+            // a subclass, not SimpleListCellRenderer.create(...): both overloads of create are on the way out
             @Override
-            protected void textChanged(@NotNull DocumentEvent event) {
-                input.putClientProperty("JComponent.outline", null);
+            public void customize(@NotNull JList<? extends RunParamsState.Choice> list, RunParamsState.Choice choice, int index,
+                                  boolean selected, boolean hasFocus) {
+                setText(choice == null ? "" : choice.display());
             }
         });
-        Runnable add = () -> {
-            List<RunParamsState.Param> parsed = RunParamsState.parse(input.getText(), false);
-            for (RunParamsState.Param param : parsed) {
-                boolean knownInt = StandardOption.isInt(param.name) || intOptions.containsKey(param.name);
-                if (param.value == null && knownInt) {
-                    param.value = intOptions.getOrDefault(param.name, "0");
-                }
-                boolean integer = param.value != null && param.value.trim().matches(INT);
-                if (knownInt && !integer) {
-                    error(input, param.name + " expects an integer");
-                    return;
-                }
-                param.numeric = integer;
-            }
-            if (!parsed.isEmpty()) {
-                state.add(parsed);
-                changed();
-                rebuild();
-            }
-        };
-        input.addActionListener(event -> add.run());
-        JPanel row = new JPanel(new BorderLayout(JBUI.scale(6), 0));
-        row.add(input, BorderLayout.CENTER);
-        row.add(new InplaceButton("Add", AllIcons.General.Add, event -> add.run()), BorderLayout.EAST);
-        return row;
-    }
-
-    private static void error(JBTextField input, String message) {
-        input.putClientProperty("JComponent.outline", "error");
-        input.repaint();
-        JBPopupFactory.getInstance()
-                .createHtmlTextBalloonBuilder(message, MessageType.ERROR, null)
-                .setFadeoutTime(3000)
-                .createBalloon()
-                .show(RelativePoint.getSouthOf(input), Balloon.Position.below);
-    }
-
-    private void chooseStandard(JComponent anchor) {
-        JBPopupFactory.getInstance()
-                .createPopupChooserBuilder(List.of(StandardOption.values()))
-                .setRenderer(new SimpleListCellRenderer<StandardOption>() {
-                    // a subclass, not SimpleListCellRenderer.create(...): both overloads of create are on the way out
-                    @Override
-                    public void customize(@NotNull JList<? extends StandardOption> list, StandardOption option, int index,
-                                          boolean selected, boolean hasFocus) {
-                        setText(option == null ? "" : option.display());
-                    }
-                })
-                .setItemChosenCallback(option -> {
-                    state.add(List.of(option.toParam()));
-                    changed();
-                    rebuild();
-                })
-                .createPopup()
-                .showUnderneathOf(anchor);
+        param.select(Math.max(0, Math.min(param.selected, param.choices.size() - 1)));
+        combo.setSelectedIndex(param.selected);
+        combo.addActionListener(event -> {
+            param.select(combo.getSelectedIndex());
+            changed();
+        });
+        return combo;
     }
 
     private void changed() {
         RunParamsSync.apply(project, this);
     }
 
-    /** Drag a row by its handle within its block; a line shows the drop position. */
+    /** Drag a row by its handle within its block (its column); a line shows the drop position. */
     private final class RowDrag extends MouseAdapter {
 
         private final RunParamsState.Param param;
@@ -265,22 +232,19 @@ final class RunParamsPanel extends JPanel implements Disposable {
         public void mouseDragged(MouseEvent event) {
             dragging = true;
             int y = SwingUtilities.convertPoint(event.getComponent(), event.getPoint(), content).y;
-            before = null;
-            RowRef last = null;
-            for (RowRef ref : rows) {
-                if (ref.param().standard != param.standard) {
-                    continue;
+            List<RowRef> block = rows.stream().filter(ref -> ref.param().standard == param.standard).toList();
+            List<Rectangle> cells = block.stream()
+                    .map(ref -> SwingUtilities.convertRectangle(ref.row().getParent(), ref.row().getBounds(), content)).toList();
+            block.forEach(ref -> ref.row().setBorder(ROW_BORDER));
+            int index = RowDrop.insertBefore(cells, y);
+            if (index < block.size()) {
+                before = block.get(index).param();
+                block.get(index).row().setBorder(DROP_ABOVE);
+            } else {
+                before = null;
+                if (!block.isEmpty()) {
+                    block.get(block.size() - 1).row().setBorder(DROP_BELOW);
                 }
-                ref.row().setBorder(ROW_BORDER);
-                last = ref;
-                Rectangle bounds = SwingUtilities.convertRectangle(ref.row().getParent(), ref.row().getBounds(), content);
-                if (before == null && y < bounds.getCenterY()) {
-                    before = ref.param();
-                    ref.row().setBorder(DROP_ABOVE);
-                }
-            }
-            if (before == null && last != null) {
-                last.row().setBorder(DROP_BELOW);
             }
         }
 

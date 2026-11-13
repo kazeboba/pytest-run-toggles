@@ -41,8 +41,12 @@ final class ConfigArgs {
         return ParametersListUtil.join(tokens);
     }
 
-    /** The option as the configuration passes it ('maxfail=1', '-k smoke'); null — not passed. */
+    /** The option as the configuration passes it ('maxfail=1', '-k smoke'); an option with a title keeps it;
+     * null — not passed. */
     static @Nullable String label(@Nullable String args, RunParamsState.Param param) {
+        if (param.hasTitle()) {
+            return param.title;
+        }
         List<String> tokens = tokens(args);
         int index = find(tokens, param.name);
         if (index < 0) {

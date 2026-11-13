@@ -65,6 +65,7 @@ public final class RunParamsToolbarGroup extends ActionGroup implements DumbAwar
             actions.add(Separator.getInstance());
             actions.add(ModuleCleanupAction.INSTANCE);
             actions.add(ModuleStatsAction.INSTANCE);
+            actions.add(ResetProgressAction.INSTANCE);
         }
         actions.add(OPEN_PANEL);
         return actions.toArray(AnAction.EMPTY_ARRAY);
@@ -120,8 +121,8 @@ public final class RunParamsToolbarGroup extends ActionGroup implements DumbAwar
                 RunParamsSync.set(saved.getConfiguration(), ConfigArgs.toggle(arguments(saved), param, state));
                 return;
             }
-            param.setOn(state);
             if (event.getProject() != null) {
+                param.setOn(state);
                 RunParamsSync.apply(event.getProject(), this);
             }
         }

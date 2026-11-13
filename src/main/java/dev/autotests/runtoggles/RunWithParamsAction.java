@@ -11,46 +11,28 @@ import com.intellij.execution.actions.RunConfigurationProducer;
 import com.intellij.execution.executors.DefaultRunExecutor;
 import com.intellij.execution.process.ProcessHandler;
 import com.intellij.execution.runners.ExecutionEnvironment;
-import com.intellij.openapi.actionSystem.ActionUpdateThread;
-import com.intellij.openapi.actionSystem.AnAction;
-import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.Disposable;
-import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.util.Disposer;
-import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.util.execution.ParametersListUtil;
+import com.jetbrains.python.run.targetBasedConfiguration.PyRunTargetVariant;
 import com.jetbrains.python.testing.ConfigurationTarget;
 import com.jetbrains.python.testing.PyAbstractTestConfiguration;
 import com.jetbrains.python.testing.PyTestsConfigurationProducer;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
-/** Project view: the selected folder or test file runs as a temporary pytest configuration with the panel options.
- * The standard Run reuses a saved configuration with the same target (e.g. a folder preset) and keeps its arguments. */
-public final class RunWithParamsAction extends AnAction implements DumbAware {
+/** A folder or test file runs as a temporary pytest configuration with the panel options (the Run button of the
+ * not started Run tab, Clean Up Module). The standard Run reuses a saved configuration with the same target
+ * (e.g. a folder preset) and keeps its arguments, this one does not. */
+final class RunWithParamsAction {
 
-    @Override
-    public @NotNull ActionUpdateThread getActionUpdateThread() {
-        return ActionUpdateThread.BGT;
-    }
-
-    @Override
-    public void update(@NotNull AnActionEvent event) {
-        VirtualFile[] files = event.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY);
-        event.getPresentation().setEnabledAndVisible(event.getProject() != null && files != null && files.length == 1
-                && isTestTarget(files[0].getName(), files[0].isDirectory()));
-    }
-
-    @Override
-    public void actionPerformed(@NotNull AnActionEvent event) {
-        Project project = event.getProject();
-        if (project != null) {
-            run(project, ConfigurationContext.getFromContext(event.getDataContext(), event.getPlace()), false);
-        }
+    private RunWithParamsAction() {
     }
 
     /** cleanup — a one-off clean-up run of the counted module: passed tests are skipped,
@@ -83,6 +65,35 @@ public final class RunWithParamsAction extends AnAction implements DumbAware {
         if (cleanup) {
             restoreArgumentsOnStart(project, settings);
         }
+        ProgramRunnerUtil.executeConfiguration(settings, DefaultRunExecutor.getRunExecutorInstance());
+    }
+
+    /** Runs the ticked tests: a temporary configuration with the target 'custom' — nothing but the arguments: the options
+     * of the panel and the paths and node ids of the selection. It is not counted by the progress counters (they
+     * follow a module or a folder). */
+    static void runSelection(Project project, ConfigurationContext context, List<String> ids) {
+        ConfigurationFromContext created = RunConfigurationProducer.getInstance(PyTestsConfigurationProducer.class)
+                .createConfigurationFromContext(context);
+        PyAbstractTestConfiguration pytest = created == null ? null : RunParamsSync.pytestLike(created.getConfiguration());
+        if (pytest == null) {
+            Messages.showWarningDialog(project, "The default test runner of the project is neither pytest nor "
+                    + "Autodetect (Settings → Tools → Python Integrated Tools).", "Run");
+            return;
+        }
+        pytest.getTarget().setTargetType(PyRunTargetVariant.CUSTOM);
+        pytest.getTarget().setTarget("");
+        RunManager runManager = RunManager.getInstance(project);
+        RunnerAndConfigurationSettings settings = temporaryWithTarget(runManager, pytest.getTarget());
+        if (settings == null) {
+            settings = created.getConfigurationSettings();
+            settings.setName("pytest: selection");
+            runManager.setUniqueNameIfNeeded(settings);
+            runManager.setTemporaryConfiguration(settings);
+        }
+        List<String> tokens = new ArrayList<>(ParametersListUtil.parse(RunParamsState.getInstance(project).arguments()));
+        tokens.addAll(ids);
+        RunParamsSync.set(settings.getConfiguration(), ParametersListUtil.join(tokens));
+        runManager.setSelectedConfiguration(settings);
         ProgramRunnerUtil.executeConfiguration(settings, DefaultRunExecutor.getRunExecutorInstance());
     }
 

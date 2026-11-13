@@ -57,6 +57,21 @@ class ConfigArgsTest {
     }
 
     @Test
+    void optionWithChoicesIsPassedWithTheSelectedValue() {
+        RunParamsState.Param serial = RunParamsState.parseInput("--serial={Samsung: A1, Pixel: B2}", false).get(0);
+        serial.select(1);
+        assertEquals("--maxfail=0 --serial=B2", ConfigArgs.toggle("--maxfail=0", serial, true));
+        assertEquals("--maxfail=0", ConfigArgs.toggle("--maxfail=0 --serial=B2", serial, false));
+        assertTrue(ConfigArgs.isOn("--serial=A1", serial));
+    }
+
+    @Test
+    void optionWithATitleKeepsItInTheToolbar() {
+        RunParamsState.Param device = RunParamsState.parseInput("Device: --serial={Samsung: A1}", false).get(0);
+        assertEquals("Device", ConfigArgs.label("--serial=A1", device));
+    }
+
+    @Test
     void positionalArgumentsStay() {
         RunParamsState.Param exitFirst = new RunParamsState.Param("-x", null, true);
         assertEquals("tests", ConfigArgs.toggle("-x tests", exitFirst, false));

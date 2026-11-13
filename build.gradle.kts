@@ -1,4 +1,5 @@
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
+import java.util.Properties
 
 plugins {
     id("java")
@@ -6,7 +7,15 @@ plugins {
 }
 
 group = "dev.autotests"
-version = "1.18.2"
+version = "1.19.0"
+
+// Machine-specific settings (the IDE to build against) live in local.properties, which is not committed:
+// copy local.properties.example to local.properties and set ide.path.
+val localSettings = Properties().apply {
+    file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+val idePath: String = localSettings.getProperty("ide.path")
+    ?: throw GradleException("Set ide.path in local.properties (copy local.properties.example): the IDE to build against")
 
 repositories {
     mavenCentral()
@@ -18,7 +27,7 @@ repositories {
 dependencies {
     intellijPlatform {
         // Build against the locally installed PyCharm: no SDK download
-        local("/Applications/PyCharm CE.app")
+        local(idePath)
         bundledPlugin("PythonCore")
     }
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
@@ -41,7 +50,7 @@ intellijPlatform {
     buildSearchableOptions = false
     pluginVerification {
         ides {
-            local(file("/Applications/PyCharm CE.app"))
+            local(file(idePath))
             ide(IntelliJPlatformType.PyCharmCommunity, "2024.3.6.1")
             ide(IntelliJPlatformType.PyCharmProfessional, "2026.2.3")
         }

@@ -2,17 +2,20 @@ package dev.autotests.runtoggles;
 
 import com.intellij.execution.configurations.RunConfiguration;
 import com.intellij.openapi.application.ReadAction;
+import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileVisitor;
 import com.intellij.psi.PsiFile;
+import com.intellij.psi.PsiFileSystemItem;
 import com.intellij.psi.PsiNamedElement;
 import com.intellij.psi.PsiManager;
 import com.jetbrains.python.psi.PyClass;
 import com.jetbrains.python.psi.PyFile;
 import com.jetbrains.python.psi.PyFunction;
+import com.jetbrains.python.psi.PyStringLiteralExpression;
 import com.jetbrains.python.run.targetBasedConfiguration.PyRunTargetVariant;
 import com.jetbrains.python.testing.ConfigurationTarget;
 import com.jetbrains.python.testing.PyAbstractTestConfiguration;
@@ -25,9 +28,12 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 
 /** Progress of the counted scope — a test module (file) or a folder of modules: which run belongs to it,
  * test keys and not-run tests. Keys of a module: 'test_x', 'TestClass::test_y'; keys of a folder add the
@@ -55,6 +61,53 @@ final class ModuleProgress {
         String path = target.getTarget().replace("$PROJECT_DIR$", String.valueOf(project.getBasePath()));
         File file = new File(path);
         return file.isDirectory() || file.isFile() && file.getName().endsWith(".py") ? file.getAbsolutePath() : null;
+    }
+
+    /** The PSI file or directory of a module or folder path; null — not found. */
+    static PsiFileSystemItem psiOf(Project project, String path) {
+        return ReadAction.compute(() -> {
+            VirtualFile virtualFile = LocalFileSystem.getInstance().findFileByPath(path);
+            if (virtualFile == null) {
+                return null;
+            }
+            return virtualFile.isDirectory() ? PsiManager.getInstance(project).findDirectory(virtualFile)
+                    : PsiManager.getInstance(project).findFile(virtualFile);
+        });
+    }
+
+    /** Where a tab that is not started opens from the sidebar button: the counted module or folder if it still
+     * exists, else the 'tests' folder of the project, else nowhere (null). */
+    static String defaultTarget(String counted, String basePath) {
+        if (counted != null && new File(counted).exists()) {
+            return counted;
+        }
+        File tests = basePath == null ? null : new File(basePath, "tests");
+        return tests != null && tests.isDirectory() ? tests.getPath() : null;
+    }
+
+    /** Opens the module file; with a test key ('test_x', 'TestClass::test_y', 'test_z[1]') — at that test. */
+    static void navigate(Project project, String modulePath, String key) {
+        VirtualFile file = LocalFileSystem.getInstance().findFileByPath(modulePath);
+        if (file == null) {
+            return;
+        }
+        PyFunction function = key == null ? null : ReadAction.compute(() -> {
+            PsiFile psi = PsiManager.getInstance(project).findFile(file);
+            if (!(psi instanceof PyFile pyFile)) {
+                return null;
+            }
+            String[] path = key.replaceAll("\\[.*$", "").split("::");
+            if (path.length == 1) {
+                return pyFile.findTopLevelFunction(path[0]);
+            }
+            PyClass testClass = pyFile.findTopLevelClass(path[0]);
+            return testClass == null ? null : testClass.findMethodByName(path[1], false, null);
+        });
+        if (function != null) {
+            function.navigate(true);
+        } else {
+            new OpenFileDescriptor(project, file).navigate(true);
+        }
     }
 
     /** The scope is a folder (its progress is counted over all test modules below it). */
@@ -173,6 +226,11 @@ final class ModuleProgress {
         return null;
     }
 
+    /** The tests of a module and the names of the cases: the first line of the docstring under the 'def'
+     * (key as in {@link #testsOf} → name; a test without a docstring has no entry). */
+    record Tests(List<String> keys, Map<String, String> docs) {
+    }
+
     /** Tests of the module as pytest collects them by default: 'test_x', 'TestClass::test_y'.
      * For a folder: the tests of all its modules with the module path in front ('sub/test_mod.py::test_x'). */
     static List<String> testsOf(Project project, String module) {
@@ -183,28 +241,59 @@ final class ModuleProgress {
             }
             return tests;
         }
+        return collect(project, module).keys();
+    }
+
+    /** The tests of one module (not of a folder) with the names of the cases. */
+    static Tests collect(Project project, String module) {
         return ReadAction.compute(() -> {
             VirtualFile virtualFile = LocalFileSystem.getInstance().findFileByPath(module);
             PsiFile psi = virtualFile == null ? null : PsiManager.getInstance(project).findFile(virtualFile);
             List<String> tests = new ArrayList<>();
+            Map<String, String> docs = new LinkedHashMap<>();
             if (psi instanceof PyFile file) {
-                for (PyFunction function : file.getTopLevelFunctions()) {
-                    if (isTest(nameOf(function))) {
-                        tests.add(nameOf(function));
+                forEachTest(file, (key, function) -> {
+                    tests.add(key);
+                    PyStringLiteralExpression doc = function.getDocStringExpression();
+                    String title = doc == null ? null : firstLine(doc.getStringValue());
+                    if (title != null) {
+                        docs.put(key, title);
                     }
-                }
-                for (PyClass testClass : file.getTopLevelClasses()) {
-                    if (nameOf(testClass) != null && nameOf(testClass).startsWith("Test")) {
-                        for (PyFunction method : testClass.getMethods()) {
-                            if (isTest(nameOf(method))) {
-                                tests.add(nameOf(testClass) + "::" + nameOf(method));
-                            }
-                        }
+                });
+            }
+            return new Tests(tests, docs);
+        });
+    }
+
+    private static void forEachTest(PyFile file, BiConsumer<String, PyFunction> consumer) {
+        for (PyFunction function : file.getTopLevelFunctions()) {
+            if (isTest(nameOf(function))) {
+                consumer.accept(nameOf(function), function);
+            }
+        }
+        for (PyClass testClass : file.getTopLevelClasses()) {
+            if (nameOf(testClass) != null && nameOf(testClass).startsWith("Test")) {
+                for (PyFunction method : testClass.getMethods()) {
+                    if (isTest(nameOf(method))) {
+                        consumer.accept(nameOf(testClass) + "::" + nameOf(method), method);
                     }
                 }
             }
-            return tests;
-        });
+        }
+    }
+
+    /** The name of a case from its docstring: the first line that is not empty, spaces squeezed; null — there is none. */
+    static String firstLine(String doc) {
+        if (doc == null) {
+            return null;
+        }
+        for (String line : doc.split("\\R")) {
+            String text = line.trim().replaceAll("\\s+", " ");
+            if (!text.isEmpty()) {
+                return text;
+            }
+        }
+        return null;
     }
 
     /** Module tests without a result yet ('test_x[1]' counts as a result for 'test_x') and tests set to not run by hand. */
@@ -276,7 +365,7 @@ final class ModuleProgress {
     }
 
     /** Through PsiNamedElement: PyFunction/PyClass.getName() resolves to the experimental PyAst* interfaces. */
-    private static String nameOf(PsiNamedElement element) {
+    static String nameOf(PsiNamedElement element) {
         return element.getName();
     }
 

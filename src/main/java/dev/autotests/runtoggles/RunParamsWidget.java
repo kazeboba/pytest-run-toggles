@@ -47,7 +47,7 @@ final class RunParamsWidget implements CustomStatusBarWidget {
         RunParamsState state = RunParamsState.getInstance(project);
         String compact = state.params().stream()
                 .filter(RunParamsState.Param::included)
-                .map(param -> String.join(" ", param.tokens()).replaceFirst("^-+", ""))
+                .map(param -> param.hasTitle() ? param.title : String.join(" ", param.tokens()).replaceFirst("^-+", ""))
                 .collect(Collectors.joining(" · "));
         label.setText(compact.isEmpty() ? "—" : StringUtil.trimMiddle(compact, MAX_TEXT));
         String args = state.arguments();

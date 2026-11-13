@@ -5,6 +5,7 @@ import com.intellij.execution.RunnerAndConfigurationSettings;
 import com.intellij.execution.configurations.RunConfiguration;
 import com.intellij.openapi.project.Project;
 import com.intellij.util.execution.ParametersListUtil;
+import com.jetbrains.python.run.targetBasedConfiguration.PyRunTargetVariant;
 import com.jetbrains.python.testing.PyAbstractTestConfiguration;
 import com.jetbrains.python.testing.PyTestConfiguration;
 import com.jetbrains.python.testing.PythonTestConfigurationType;
@@ -29,6 +30,7 @@ final class RunParamsSync {
     static void apply(Project project, Object source) {
         seedOnce(project);
         RunParamsState state = RunParamsState.getInstance(project);
+        state.migratePresets();
         String args = state.arguments();
         List<String> deselect = ModuleProgress.deselectArgs(project, state.getState());
         RunManager runManager = RunManager.getInstance(project);
@@ -38,7 +40,7 @@ final class RunParamsSync {
                     .getConfiguration(), args);
         }
         for (RunnerAndConfigurationSettings settings : runManager.getAllSettings()) {
-            if (settings.isTemporary() && state.getState().manageTemporary) {
+            if (settings.isTemporary() && state.getState().manageTemporary && !isCustomTarget(settings.getConfiguration())) {
                 set(settings.getConfiguration(), argsFor(project, settings.getConfiguration(), args, deselect));
             }
         }
@@ -77,7 +79,7 @@ final class RunParamsSync {
             if (zeroOne) {
                 param.conftestDefault = fallback;
             }
-            if (param.binary || !zeroOne || (param.value != null && !param.value.matches("[01]"))) {
+            if (param.binary || param.hasTitle() || param.hasChoices() || !zeroOne || (param.value != null && !param.value.matches("[01]"))) {
                 continue;
             }
             if (!param.enabled || param.value == null) {
@@ -99,6 +101,12 @@ final class RunParamsSync {
         List<String> tokens = new ArrayList<>(ParametersListUtil.parse(args));
         tokens.addAll(deselect);
         return ParametersListUtil.join(tokens);
+    }
+
+    /** A configuration whose target is 'custom' (the run of a selection): its arguments are the tests to run, not the panel's. */
+    static boolean isCustomTarget(RunConfiguration configuration) {
+        PyAbstractTestConfiguration test = pytestLike(configuration);
+        return test != null && test.getTarget().getTargetType() == PyRunTargetVariant.CUSTOM;
     }
 
     static void set(RunConfiguration configuration, String args) {

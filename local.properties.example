@@ -1,0 +1,3 @@
+# Copy to local.properties (not committed) and set your own values.
+# The IDE the plugin is built against and verified with (the .app folder on macOS):
+ide.path=/Applications/PyCharm.app

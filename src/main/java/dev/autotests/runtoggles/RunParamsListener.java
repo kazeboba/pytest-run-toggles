@@ -19,7 +19,8 @@ public final class RunParamsListener implements RunManagerListener {
     @Override
     public void runConfigurationAdded(@NotNull RunnerAndConfigurationSettings settings) {
         RunParamsState state = RunParamsState.getInstance(project);
-        if (settings.isTemporary() && state.getState().manageTemporary && state.getState().seeded) {
+        if (settings.isTemporary() && state.getState().manageTemporary && state.getState().seeded
+                && !RunParamsSync.isCustomTarget(settings.getConfiguration())) {
             RunParamsSync.markBinary(project);
             RunParamsSync.set(settings.getConfiguration(), RunParamsSync.argsFor(project, settings.getConfiguration(),
                     state.arguments(), ModuleProgress.deselectArgs(project, state.getState())));

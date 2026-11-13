@@ -1,7 +1,11 @@
 package dev.autotests.runtoggles;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -12,6 +16,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ModuleProgressTest {
 
     private static final String MODULE = "/p/tests/test_alpha.py";
+
+    @Test
+    void sidebarButtonStartsFromTheCountedModuleIfItStillExists(@TempDir Path project) throws IOException {
+        Files.createDirectories(project.resolve("tests"));
+        Path module = Files.createFile(project.resolve("tests").resolve("test_alpha.py"));
+        assertEquals(module.toString(), ModuleProgress.defaultTarget(module.toString(), project.toString()));
+    }
+
+    @Test
+    void sidebarButtonFallsBackToTheTestsFolderThenToNothing(@TempDir Path project) throws IOException {
+        assertNull(ModuleProgress.defaultTarget("/gone/test_x.py", project.toString()));
+        assertNull(ModuleProgress.defaultTarget(null, null));
+        Files.createDirectories(project.resolve("tests"));
+        assertEquals(project.resolve("tests").toString(), ModuleProgress.defaultTarget("/gone/test_x.py", project.toString()));
+        assertEquals(project.resolve("tests").toString(), ModuleProgress.defaultTarget(null, project.toString()));
+    }
 
     @Test
     void testKeyFromPycharmLocation() {
@@ -143,5 +163,13 @@ class ModuleProgressTest {
     void notRunDoesNotListAPendingTestThatHasAResult() {
         List<String> notRun = ModuleProgress.notRun(List.of("test_a"), List.of("test_a"), List.of(), List.of("test_a"));
         assertEquals(List.of(), notRun);
+    }
+
+    @Test
+    void caseNameIsTheFirstNonEmptyLineOfTheDocstring() {
+        assertEquals("Registration, 'Remind later'", ModuleProgress.firstLine("Registration, 'Remind later'"));
+        assertEquals("Banner on top", ModuleProgress.firstLine("\n   Banner   on  top  \n\nmore text"));
+        assertNull(ModuleProgress.firstLine("   \n  "));
+        assertNull(ModuleProgress.firstLine(null));
     }
 }

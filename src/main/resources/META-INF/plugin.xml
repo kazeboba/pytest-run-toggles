@@ -8,19 +8,32 @@
 
         <h3>Run options</h3>
         <ul>
-            <li><b>Pytest Params</b> tool window: standard pytest options are added with «+»
-                (<code>-x</code>, <code>--maxfail</code>, <code>-k</code>, <code>--lf</code>…), custom ones
-                (e.g. conftest options like <code>--debugging=0</code>) are typed in. Every row has a drag handle,
-                a checkbox, a value and a remove button.</li>
+            <li>The <b>PytestParams</b> tab is always in the Run panel, the first one (the tabs of the real runs come after
+                it); it cannot be closed. The <b>Pytest Params</b> button on the left sidebar opens the Run panel on it, so it
+                can be opened right after the IDE starts; the IDE's own Run button opens the standard panel with the latest
+                real run. The tab has a Run button at the top, in the middle, and two
+                columns (Clean Up Module, the progress counters and the reset button are on the toolbar of the Run tabs). <b>Left:</b> the options, Standard first and Custom after, every row with a drag handle, a checkbox,
+                a value and a remove button; the <b>+</b> button opens the window that adds a standard option from a list or
+                a custom one. <b>Right:</b> what to run — the directories, modules and tests of the project with
+                checkboxes, a search by test id or name (several ids separated by comma or space; a test is shown with the name of the case from its docstring, cut with «…» where the row ends); a double click on a module or a test opens it in
+                the editor. The ticks and the search are kept; the directories and modules with ticked tests move to the
+                top 0.2 s after the last tick, the tests of a module keep their order; the tree does not scroll after the moved row; the Run button runs what is ticked. <b>Add to Sequence</b> (right click on the name of a test in the
+                editor, or on test modules and directories in the Project view) ticks them in the tree.</li>
+            <li><b>Values to choose from:</b> <code>[Title:] --serial={Samsung: R58M123456A, Pixel: 1A2B3C4D5E6F}</code> in
+                the window of the + button makes one option with a dropdown: a checkbox (named Title, or the option itself)
+                and a choice between «Samsung: R58M123456A» and «Pixel: 1A2B3C4D5E6F». The selected value is what the option
+                passes.</li>
             <li>Options that <code>conftest.py</code> declares as integers with default 0 or 1 show as a single
                 checkbox that sets the value: checked is <code>=1</code>, unchecked is <code>=0</code>.</li>
-            <li>The same checkboxes are on the Run tab toolbar of pytest runs and in the status bar.</li>
+            <li>The same checkboxes are on the Run tab toolbar of pytest runs and in the status bar; the gear on the
+                toolbar and «Edit…» in the status bar menu open the PytestParams tab.</li>
             <li>Enabled options become the Additional Arguments of the pytest template and of temporary (▶)
                 configurations. Saved configurations are left untouched: on the Run tab of a saved configuration
                 the checkboxes edit that configuration's own arguments.</li>
-            <li><b>Run with Pytest Params</b> in the Project view menu runs a folder or a test file as a temporary
-                configuration with these options, even when a saved configuration has the same target
-                (the standard Run reuses it).</li>
+            <li>The Run button of the tab runs what is ticked on the right with these options as a temporary configuration
+                (a single directory or module as itself: its progress is counted; several, or tests, as one run of the
+                selection: not counted); with nothing ticked — the counted module or folder, else the tests folder. The run
+                is shown in its own tab.</li>
         </ul>
 
         <h3>Progress and clean-up</h3>
@@ -29,8 +42,9 @@
                 or the folder you ran. A run of another module or folder starts the count from scratch; a module,
                 a subfolder or a single test inside the counted folder adds to its progress.</li>
             <li>Click the counters to see every test with its status. A click on a test moves it to the next status
-                (passed, not run, failed), Cmd/Ctrl-click opens the test, <i>Reset progress</i> forgets the results.</li>
-            <li><b>Clean Up Module</b> (the broom button next to the counters and in the Project view menu) runs
+                (passed, not run, failed), Cmd/Ctrl-click opens the test. The button next to the counters resets the
+                progress: the results are forgotten.</li>
+            <li><b>Clean Up Module</b> (the broom button next to the counters) runs
                 only the failed and not run tests of the counted module or folder: passed tests are skipped with
                 <code>--deselect</code> for that one run, Rerun and ▶ run everything again.</li>
         </ul>
@@ -40,6 +54,23 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <h4>1.19.0</h4>
+        <ul>
+            <li>A <b>PytestParams</b> tab, always in the Run panel and the first one (real runs come after it, it cannot be
+                closed), opened by a button on the left sidebar. A Run button at the top, in the middle (Clean Up Module, the counters
+                and the reset-progress button are on the toolbar of the Run tabs; the reset button is no longer in the counter's list). Left column: the
+                options (Standard, then Custom) and a + at the right of the Params title that opens the window that adds one. Right column: what to
+                run — a tree of directories, modules and tests with checkboxes, a search by id or name; a test shows the name of the case from its docstring, cut with «…»; a double click opens a module or a test in the editor; Run runs
+                what is ticked.</li>
+            <li>An option with a dropdown of values: <code>[Title:] --serial={Samsung: ID1, Pixel: ID2}</code>.
+                (The separate Samsung and Pixel rows of the earlier build become one such row.)</li>
+            <li><i>Add to Sequence</i> in the editor menu (on the name of a test) and in the Project view menu (on test
+                modules and directories) ticks them in the PytestParams tab; the directories and modules with ticked tests
+                are shown first.</li>
+            <li>The IDE's own Run button opens the standard Run panel with the latest real run, not the PytestParams tab.</li>
+            <li>Removed from the Project view menu: <i>Run with Pytest Params</i> and <i>Clean Up Module</i> (Clean Up Module
+                stays on the Run toolbar).</li>
+        </ul>
         <h4>1.18.2</h4>
         <ul>
             <li>Requires IDE 2024.3 or newer: the progress counter and popup use IDE API that older versions do not have,
@@ -67,8 +98,9 @@
     <depends>com.intellij.modules.python</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="Pytest Params" anchor="right" icon="/icons/pytestParams.svg"
-                    factoryClass="dev.autotests.runtoggles.RunParamsToolWindowFactory"/>
+        <!-- only the button on the left sidebar: a click opens the PytestParams tab (see RunPanelButtonListener) -->
+        <toolWindow id="Pytest Params" anchor="left" icon="/icons/pytestParams.svg"
+                    factoryClass="dev.autotests.runtoggles.RunPanelButtonFactory"/>
         <postStartupActivity implementation="dev.autotests.runtoggles.RunParamsStartup"/>
         <projectConfigurable parentId="tools" id="pytest.run.params" displayName="Pytest Run Params"
                              instance="dev.autotests.runtoggles.RunParamsConfigurable"/>
@@ -76,14 +108,15 @@
     </extensions>
 
     <actions>
-        <action id="PytestParams.RunWithParams" class="dev.autotests.runtoggles.RunWithParamsAction"
-                text="Run with Pytest Params" icon="/icons/pytestParams.svg"
-                description="Run as a temporary pytest configuration with the Pytest Params options">
-            <add-to-group group-id="ProjectViewPopupMenuRunGroup" anchor="last"/>
+        <!-- one action, two menus: on the name of a test in the editor, on test modules and directories in the Project view -->
+        <action id="PytestParams.AddToSequenceEditor" class="dev.autotests.runtoggles.AddToSequenceAction"
+                text="Add to Sequence" icon="/icons/pytestParams.svg"
+                description="Add this test to the tests that the PytestParams tab runs">
+            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
         </action>
-        <action id="PytestParams.CleanupModule" class="dev.autotests.runtoggles.ModuleCleanupAction"
-                text="Clean Up Module" icon="/icons/cleanupModule.svg"
-                description="Run only failed and not run tests of the counted module or folder (passed tests are skipped)">
+        <action id="PytestParams.AddToSequenceTree" class="dev.autotests.runtoggles.AddToSequenceAction"
+                text="Add to Sequence" icon="/icons/pytestParams.svg"
+                description="Add this module or directory to the tests that the PytestParams tab runs">
             <add-to-group group-id="ProjectViewPopupMenuRunGroup" anchor="last"/>
         </action>
         <group id="PytestParams.RunTab" class="dev.autotests.runtoggles.RunParamsToolbarGroup"
@@ -97,5 +130,7 @@
                   topic="com.intellij.execution.RunManagerListener"/>
         <listener class="dev.autotests.runtoggles.ModuleProgressTracker"
                   topic="com.intellij.execution.testframework.sm.runner.SMTRunnerEventsListener"/>
+        <listener class="dev.autotests.runtoggles.RunPanelButtonListener"
+                  topic="com.intellij.openapi.wm.ex.ToolWindowManagerListener"/>
     </projectListeners>
 </idea-plugin>
